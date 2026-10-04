@@ -1,3 +1,5 @@
+import { request as httpsRequest } from "node:https";
+
 const NERDA_ORIGIN = "https://nerda-prod-apis-v2.azurewebsites.net/api/";
 
 export type HistoryPoint = { t: string; value: number };
@@ -17,21 +19,45 @@ export async function nerdaGet(pathname: string, params: Record<string, string> 
   }
   const url = new URL(pathname.replace(/^\//, ""), NERDA_ORIGIN);
   for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
-  const response = await fetch(url, {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: JSON.stringify({ username, apiKey }),
+  const body = JSON.stringify({ username, apiKey });
+  // NeRDA's long-term key is a JSON body on GET. fetch() refuses that combination.
+  return new Promise((resolve, reject) => {
+    const req = httpsRequest(
+      url,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          "Content-Length": Buffer.byteLength(body),
+        },
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (chunk: Buffer) => chunks.push(chunk));
+        res.on("end", () => {
+          const status = res.statusCode ?? 0;
+          const text = Buffer.concat(chunks).toString("utf8");
+          if (status === 401 || status === 403) {
+            reject(new NerdaAuthError(status));
+            return;
+          }
+          if (status < 200 || status >= 300) {
+            reject(new Error(`NeRDA ${status} on ${pathname}`));
+            return;
+          }
+          try {
+            resolve(JSON.parse(text) as unknown);
+          } catch {
+            reject(new Error(`NeRDA returned non-JSON on ${pathname}`));
+          }
+        });
+      },
+    );
+    req.on("error", reject);
+    req.write(body);
+    req.end();
   });
-  if (response.status === 401 || response.status === 403) {
-    throw new NerdaAuthError(response.status);
-  }
-  if (!response.ok) {
-    throw new Error(`NeRDA ${response.status} on ${pathname}`);
-  }
-  return response.json();
 }
 
 type Analog = { name: string; points: HistoryPoint[] };
