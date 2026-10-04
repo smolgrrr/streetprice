@@ -1,9 +1,11 @@
-import { capGbpPerMwh, priceParameters, priceWindow } from "./price";
+import { compareFeeders, qualityFor } from "./comparison";
+import { ASSUMED_FUSE_AMPS } from "./cohort";
+import { capGbpPerMwh, priceParameters, priceWindow, ratingKvaFromAmps } from "./price";
 import type { Feeder, Snapshot } from "./types";
 
-const START = Date.parse("2026-10-03T12:00:00.000Z");
-const STEP_MS = 10 * 60 * 1000;
-const COUNT = 144;
+const START = Date.parse("2026-09-29T00:00:00.000Z");
+const STEP_MS = 30 * 60 * 1000;
+const COUNT = 48;
 
 function times(): string[] {
   return Array.from({ length: COUNT }, (_, index) => new Date(START + index * STEP_MS).toISOString());
@@ -14,126 +16,69 @@ function hourUtc(t: string): number {
   return date.getUTCHours() + date.getUTCMinutes() / 60;
 }
 
-/** Stepwise half-hour shape, cheap overnight and dear through the evening. */
+/** Synthetic half-hour wholesale shape used only when no local snapshot exists. */
 export function fixtureWholesale(t: string): number {
-  const block = Math.floor(hourUtc(t) * 2) / 2;
-  if (block >= 17 && block < 20) return 190;
-  if (block >= 16 && block < 17) return 120;
-  if (block >= 7 && block < 9) return 110;
-  if (block >= 0 && block < 6) return 42;
-  if (block >= 11 && block < 15) return 55;
-  return 78;
+  const hour = hourUtc(t);
+  if (hour >= 17 && hour < 20) return 168;
+  if (hour >= 7 && hour < 9) return 104;
+  if (hour < 6) return 44;
+  if (hour >= 11 && hour < 15) return 58;
+  return 79;
 }
 
-function eveningKw(hour: number): number {
-  if (hour >= 17 && hour < 21) return 170;
-  if (hour >= 0 && hour < 6) return 15;
-  return 40;
+const sites = [
+  { id: "JUXON ST FLATS", name: "Juxon St Flats", lat: 51.759821, lon: -1.269897, feeders: [1, 2, 3] },
+  { id: "ST BERNARDS ROAD", name: "St Bernards Road", lat: 51.762019, lon: -1.265716, feeders: [1, 3, 4, 5] },
+  { id: "VENABLES CLOSE", name: "Venables Close", lat: 51.760522, lon: -1.267604, feeders: [1, 2, 3, 4, 5] },
+] as const;
+
+function syntheticPower(hour: number, offset: number): number {
+  const daytime = 24 * Math.sin(((hour - 6) / 24) * Math.PI * 2);
+  const evening = hour >= 17 && hour < 21 ? 46 + offset * 4 : 0;
+  const exportKw = hour >= 11 && hour < 15 && offset % 3 === 0 ? -48 : 0;
+  return 28 + offset * 3 + daytime + evening + exportKw;
 }
-
-function solarKw(hour: number): number {
-  if (hour >= 10 && hour < 15) return -80;
-  if (hour >= 17 && hour < 20) return 45;
-  return 20;
-}
-
-function morningKw(hour: number): number {
-  if (hour >= 7 && hour < 10) return 150;
-  return 30;
-}
-
-function mildKw(hour: number): number {
-  return 40 + 10 * Math.sin((hour / 24) * Math.PI * 2);
-}
-
-type Draft = {
-  id: string;
-  name: string;
-  substationId: string;
-  substationName: string;
-  lat: number;
-  lon: number;
-  ratingKva: number;
-  power: (hour: number) => number;
-};
-
-const drafts: Draft[] = [
-  {
-    id: "cowley-between-towns",
-    name: "Between Towns Road",
-    substationId: "cowley",
-    substationName: "Cowley Road",
-    lat: 51.7304,
-    lon: -1.2138,
-    ratingKva: 200,
-    power: eveningKw,
-  },
-  {
-    id: "cowley-crowell",
-    name: "Crowell Road",
-    substationId: "cowley",
-    substationName: "Cowley Road",
-    lat: 51.7304,
-    lon: -1.2138,
-    ratingKva: 120,
-    power: solarKw,
-  },
-  {
-    id: "cowley-barns",
-    name: "Barns Road",
-    substationId: "cowley",
-    substationName: "Cowley Road",
-    lat: 51.7304,
-    lon: -1.2138,
-    ratingKva: 250,
-    power: () => 40,
-  },
-  {
-    id: "headington-london",
-    name: "London Road",
-    substationId: "headington",
-    substationName: "Headington",
-    lat: 51.7582,
-    lon: -1.2114,
-    ratingKva: 160,
-    power: morningKw,
-  },
-  {
-    id: "headington-old",
-    name: "Old Road",
-    substationId: "headington",
-    substationName: "Headington",
-    lat: 51.7582,
-    lon: -1.2114,
-    ratingKva: 300,
-    power: mildKw,
-  },
-];
 
 export function buildFixture(): Snapshot {
   const cap = capGbpPerMwh();
   const clock = times();
-  const feeders: Feeder[] = drafts.map((draft) => ({
-    id: draft.id,
-    name: draft.name,
-    substationId: draft.substationId,
-    substationName: draft.substationName,
-    lat: draft.lat,
-    lon: draft.lon,
-    ratingKva: draft.ratingKva,
-    ratingSource: "kva",
-    samples: priceWindow(
-      clock.map((t) => ({ t, pKw: draft.power(hourUtc(t)) })),
-      fixtureWholesale,
-      draft.ratingKva,
-      cap,
-    ),
-  }));
+  const ratingKva = ratingKvaFromAmps(ASSUMED_FUSE_AMPS);
+  let offset = 0;
+  const feeders: Feeder[] = sites.flatMap((site) =>
+    site.feeders.map((number) => {
+      const feederOffset = offset++;
+      return {
+        id: `${site.id}\nsynthetic_${number}`,
+        name: `Feeder ${number}`,
+        substationId: site.id,
+        substationName: site.name,
+        lat: site.lat,
+        lon: site.lon,
+        ratingKva,
+        ratingSource: "assumed-feeder-fuse" as const,
+        quality: qualityFor(COUNT, COUNT),
+        samples: priceWindow(
+          clock.map((t) => ({ t, pKw: syntheticPower(hourUtc(t), feederOffset) })),
+          fixtureWholesale,
+          ratingKva,
+          cap,
+        ),
+      };
+    }),
+  );
   return {
-    updatedAt: clock[clock.length - 1],
+    updatedAt: clock.at(-1)!,
     source: "fixture",
+    mode: "synthetic",
+    window: {
+      start: clock[0],
+      end: new Date(START + 24 * 60 * 60 * 1000).toISOString(),
+      dataThrough: clock.at(-1)!,
+    },
     capGbpPerMwh: cap,
+    ratingAssumptionAmps: ASSUMED_FUSE_AMPS,
     parameters: { ...priceParameters },
+    comparison: compareFeeders(feeders),
     feeders,
   };
 }

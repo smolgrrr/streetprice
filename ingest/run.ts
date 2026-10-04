@@ -1,33 +1,35 @@
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { fetchMarketIndex, wholesaleAt, type WholesalePoint } from "../lib/elexon";
+import { compareFeeders, qualityFor } from "../lib/comparison";
+import { ASSUMED_FUSE_AMPS, COHORT_LIMIT } from "../lib/cohort";
+import { fetchMarketIndex, wholesaleAt } from "../lib/elexon";
 import { loadLocalEnv } from "../lib/env";
-import { fetchBetween, NerdaAuthError, type HistoryPoint } from "../lib/nerda";
-import { capGbpPerMwh, currentLoading, priceParameters, priceWindow } from "../lib/price";
+import {
+  fetchBetween,
+  mergeAnalogSeries,
+  NerdaAuthError,
+  threePhasePowerKw,
+  type AnalogSeries,
+} from "../lib/nerda";
+import { capGbpPerMwh, priceParameters, priceWindow } from "../lib/price";
 import type { CohortFeeder, Feeder, Snapshot } from "../lib/types";
 
 loadLocalEnv();
 
 const HOUR = 60 * 60 * 1000;
-const KEEP_MS = 26 * HOUR;
+const HALF_HOUR = 30 * 60 * 1000;
+const DEFAULT_WINDOW_START = "2026-09-29T00:00:00.000Z";
 
-function byTime(points: HistoryPoint[]): Map<string, number> {
-  const map = new Map<string, number>();
-  for (const point of points) map.set(point.t, point.value);
-  return map;
-}
-
-async function paged(measurementId: string, after: Date, before: Date): Promise<HistoryPoint[]> {
-  const points: HistoryPoint[] = [];
+async function paged(measurementId: string, after: Date, before: Date): Promise<AnalogSeries[]> {
+  const pages: AnalogSeries[] = [];
   let cursor = after.getTime();
   const end = before.getTime();
   while (cursor < end) {
     const next = Math.min(end, cursor + 6 * HOUR);
-    const page = await fetchBetween(measurementId, new Date(cursor), new Date(next));
-    points.push(...page);
+    pages.push(...(await fetchBetween(measurementId, new Date(cursor), new Date(next))));
     cursor = next;
   }
-  return [...byTime(points)].map(([t, value]) => ({ t, value })).sort((a, b) => a.t.localeCompare(b.t));
+  return mergeAnalogSeries(pages);
 }
 
 async function readJson<T>(file: string): Promise<T | null> {
@@ -41,45 +43,29 @@ async function readJson<T>(file: string): Promise<T | null> {
 async function main(): Promise<void> {
   const cohortFile = path.join(process.cwd(), "cohort.json");
   const cohort = await readJson<CohortFeeder[]>(cohortFile);
-  if (!cohort || cohort.length === 0) {
-    console.log("No cohort.json yet. The site keeps serving the worked example.");
-    return;
+  if (!cohort || cohort.length !== COHORT_LIMIT) {
+    throw new Error(`Expected the fixed ${COHORT_LIMIT}-feeder cohort in cohort.json. Run npm run discover.`);
   }
 
-  const snapshotFile = path.join(process.cwd(), "data", "snapshot.json");
-  const previous = await readJson<Snapshot>(snapshotFile);
-  const now = new Date();
-  const backfill = !previous || previous.source !== "nerda";
-  const after = new Date(now.getTime() - (backfill ? KEEP_MS : 30 * 60 * 1000));
-
-  let wholesale: WholesalePoint[];
-  try {
-    wholesale = await fetchMarketIndex(new Date(now.getTime() - KEEP_MS), now);
-  } catch (error) {
-    console.error(error instanceof Error ? error.message : "Elexon request failed");
-    process.exitCode = 1;
-    return;
-  }
+  const start = new Date(process.env.NERDA_WINDOW_START ?? DEFAULT_WINDOW_START);
+  if (Number.isNaN(start.getTime())) throw new Error("NERDA_WINDOW_START is not a valid timestamp");
+  const end = new Date(start.getTime() + 24 * HOUR);
+  const expectedBuckets = Math.round((end.getTime() - start.getTime()) / HALF_HOUR);
+  const wholesale = await fetchMarketIndex(start, end);
+  if (wholesale.length === 0) throw new Error("Elexon returned no wholesale prices for the pilot window");
 
   const cap = capGbpPerMwh();
   const feeders: Feeder[] = [];
-
   try {
-    for (const row of cohort) {
-      const powerSeries = await Promise.all(
-        row.powerMeasurementIds.map((id) => paged(id, after, now)),
+    for (const [index, row] of cohort.entries()) {
+      console.log(`${index + 1}/${cohort.length} ${row.substationName} ${row.name}`);
+      const analogs = (
+        await Promise.all(row.powerMeasurementIds.map((id) => paged(id, start, end)))
+      ).flat();
+      const points = threePhasePowerKw(mergeAnalogSeries(analogs), row.powerScaleToKw).filter(
+        (point) => point.t >= start.toISOString() && point.t < end.toISOString(),
       );
-      const currentSeries = await Promise.all(
-        row.currentMeasurementIds.map((id) => paged(id, after, now)),
-      );
-      const fresh = align(row, powerSeries, currentSeries);
-      const prior =
-        previous?.feeders.find((feeder) => feeder.id === row.id)?.samples.map((sample) => ({
-          t: sample.t,
-          pKw: sample.pKw,
-          loading: sample.loading,
-        })) ?? [];
-      const merged = mergeSamples(prior, fresh, now.getTime() - KEEP_MS);
+      const quality = qualityFor(points.length, expectedBuckets);
       feeders.push({
         id: row.id,
         name: row.name,
@@ -89,71 +75,49 @@ async function main(): Promise<void> {
         lon: row.lon,
         ratingKva: row.ratingKva,
         ratingSource: row.ratingSource,
-        samples: priceWindow(merged, (t) => wholesaleAt(wholesale, t), row.ratingKva, cap),
+        quality,
+        samples: priceWindow(
+          points.map((point) => ({ t: point.t, pKw: point.value })),
+          (t) => wholesaleAt(wholesale, t),
+          row.ratingKva,
+          cap,
+        ),
       });
     }
   } catch (error) {
     if (error instanceof NerdaAuthError) {
-      console.error(error.message);
-      console.error("Left the previous snapshot in place.");
-    } else {
-      console.error(error instanceof Error ? error.message : "Ingest failed");
+      throw new Error(`${error.message}. The previous local snapshot was left in place.`);
     }
-    process.exitCode = 1;
-    return;
+    throw error;
   }
+
+  const insufficient = feeders.filter((feeder) => feeder.quality.status === "insufficient");
+  if (insufficient.length > 0) {
+    throw new Error(
+      `Pilot quality gate failed: ${insufficient.map((feeder) => `${feeder.substationName} ${feeder.name}`).join(", ")}`,
+    );
+  }
+  const dataThrough = feeders
+    .flatMap((feeder) => feeder.samples.map((sample) => sample.t))
+    .sort()
+    .at(-1);
+  if (!dataThrough) throw new Error("The pilot produced no complete three-phase buckets");
 
   const snapshot: Snapshot = {
-    updatedAt: now.toISOString(),
-    source: "nerda",
+    updatedAt: new Date().toISOString(),
+    source: "nerda-historical",
+    mode: "historical",
+    window: { start: start.toISOString(), end: end.toISOString(), dataThrough },
     capGbpPerMwh: cap,
+    ratingAssumptionAmps: ASSUMED_FUSE_AMPS,
     parameters: { ...priceParameters },
+    comparison: compareFeeders(feeders),
     feeders,
   };
+  const snapshotFile = path.join(process.cwd(), "data", "snapshot.json");
   await mkdir(path.dirname(snapshotFile), { recursive: true });
-  await writeFile(snapshotFile, JSON.stringify(snapshot));
-  console.log(`Wrote ${feeders.length} feeders to ${snapshotFile}.`);
-}
-
-function align(
-  row: CohortFeeder,
-  powerSeries: HistoryPoint[][],
-  currentSeries: HistoryPoint[][],
-): { t: string; pKw: number; loading: number }[] {
-  const powerMaps = powerSeries.map(byTime);
-  const times = new Set<string>();
-  for (const map of powerMaps) {
-    for (const t of map.keys()) times.add(t);
-  }
-  const currentMaps = currentSeries.map(byTime);
-  const samples: { t: string; pKw: number; loading: number }[] = [];
-  for (const t of [...times].sort()) {
-    if (powerMaps.some((map) => !map.has(t))) continue;
-    const watts = powerMaps.map((map) => map.get(t) ?? 0);
-    const pKw = watts.reduce((sum, value) => sum + value, 0) * row.powerScaleToKw;
-    let loading = Math.abs(pKw) / row.ratingKva;
-    if (row.currentLimitAmps && currentMaps.length > 0 && currentMaps.every((map) => map.has(t))) {
-      loading = currentLoading(
-        currentMaps.map((map) => map.get(t) ?? 0),
-        row.currentLimitAmps,
-      );
-    }
-    samples.push({ t, pKw, loading });
-  }
-  return samples;
-}
-
-function mergeSamples(
-  prior: { t: string; pKw: number; loading: number }[],
-  fresh: { t: string; pKw: number; loading: number }[],
-  earliest: number,
-): { t: string; pKw: number; loading: number }[] {
-  const map = new Map<string, { t: string; pKw: number; loading: number }>();
-  for (const sample of prior) map.set(sample.t, sample);
-  for (const sample of fresh) map.set(sample.t, sample);
-  return [...map.values()]
-    .filter((sample) => Date.parse(sample.t) >= earliest)
-    .sort((a, b) => a.t.localeCompare(b.t));
+  await writeFile(snapshotFile, JSON.stringify(snapshot, null, 2));
+  console.log(`Wrote ${feeders.length} historical feeders to ${snapshotFile}.`);
 }
 
 main().catch((error: unknown) => {

@@ -1,9 +1,8 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { feedersFromLines, selectCohort, type DiscoveredLine } from "../lib/cohort";
 import { loadLocalEnv } from "../lib/env";
 import { fetchStatic } from "../lib/nerda";
-import { ratingKvaFromAmps } from "../lib/price";
-import type { CohortFeeder, RatingSource } from "../lib/types";
 
 const BOX = { minLat: 51.7, maxLat: 51.82, minLon: -1.32, maxLon: -1.15 };
 
@@ -14,6 +13,8 @@ type Measurement = {
   type: string;
   unit: string;
   multiplier: string;
+  phase: string;
+  name: string;
 };
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -75,6 +76,8 @@ function measurementsOf(line: Record<string, unknown>): Measurement[] {
         type: text(record.measurementType ?? record.type),
         unit: text(record.unitSymbol ?? record.unit),
         multiplier: text(record.unitMultiplier ?? record.multiplier) || "none",
+        phase: text(record.phase ?? record.phases ?? record.terminal ?? record.measurementPhase),
+        name: text(record.aliasName ?? record.measurementName ?? record.name),
       },
     ];
   });
@@ -140,32 +143,14 @@ function siteId(site: Record<string, unknown>, index: number): string {
   );
 }
 
-function ratingFor(
-  limit: number,
-  hasCurrent: boolean,
-  sharedKva: number | null,
-): { ratingKva: number; ratingSource: RatingSource } | null {
-  if (limit > 0 && limit <= 2000 && hasCurrent) {
-    return { ratingKva: ratingKvaFromAmps(limit), ratingSource: "amps" };
-  }
-  if (limit > 2000) {
-    return { ratingKva: limit / 1000, ratingSource: "kva" };
-  }
-  if (limit > 0) {
-    return { ratingKva: limit, ratingSource: "kva" };
-  }
-  if (sharedKva && sharedKva > 0) {
-    return { ratingKva: sharedKva, ratingSource: "assumed-transformer-share" };
-  }
-  return null;
-}
-
 async function main(): Promise<void> {
   const only = process.env.NERDA_SUBSTATION_ID;
   const payload = await fetchStatic(only);
   const sites = sitesFrom(payload);
-  const feeders: CohortFeeder[] = [];
+  const discovered: DiscoveredLine[] = [];
+  const sharedKva = new Map<string, number>();
   let inArea = 0;
+  const measurementKeys = new Set<string>();
 
   for (const [index, site] of sites.entries()) {
     const point = coords(site);
@@ -175,46 +160,67 @@ async function main(): Promise<void> {
       const record = asRecord(item);
       return record ? [record] : [];
     });
-    const shared = transformerKva(site);
-    const share = shared && lines.length > 0 ? shared / lines.length : null;
     const name = siteName(site, index);
     const id = siteId(site, index);
+    const transformer = transformerKva(site);
+    if (transformer) sharedKva.set(id, transformer / Math.max(1, lines.length));
 
     for (const line of lines) {
+      if (measurementKeys.size < 12) {
+        const first = asArray(line.measurements)[0];
+        const record = asRecord(first);
+        if (record) for (const key of Object.keys(record)) measurementKeys.add(key);
+      }
       const measurements = measurementsOf(line);
       const power = measurements.filter(isRealPower);
-      const current = measurements.filter(isLineCurrent);
       if (power.length === 0) continue;
-      const limit = numberish(line.limit) ?? 0;
-      const rating = ratingFor(limit, current.length > 0, share);
-      if (!rating) continue;
+      const current = measurements.filter(isLineCurrent);
       const linePoint = coords(line) ?? point;
-      const lineName = text(line.line_name) || text(line.name) || text(line.nerda_line_uuid);
-      feeders.push({
-        id: text(line.nerda_line_uuid) || `${id}:${lineName}`,
-        name: lineName,
+      discovered.push({
         substationId: id,
         substationName: name,
         lat: linePoint.lat,
         lon: linePoint.lon,
-        ratingKva: rating.ratingKva,
-        ratingSource: rating.ratingSource,
-        powerScaleToKw: powerScale(power[0]),
-        powerMeasurementIds: power.map((measurement) => measurement.id),
-        currentMeasurementIds: current.map((measurement) => measurement.id),
-        currentLimitAmps: rating.ratingSource === "amps" ? limit : null,
+        lineName: text(line.line_name) || text(line.name) || text(line.nerda_line_uuid),
+        feederName: text(line.feeder_name),
+        limit: numberish(line.limit) ?? 0,
+        hasCurrentLimit: current.length > 0,
+        power: power.map((measurement) => ({
+          id: measurement.id,
+          scaleToKw: powerScale(measurement),
+          phase: measurement.phase,
+          name: measurement.name,
+        })),
+        current: current.map((measurement) => ({
+          id: measurement.id,
+          phase: measurement.phase,
+          name: measurement.name,
+        })),
       });
     }
   }
 
+  const feeders = feedersFromLines(discovered, sharedKva);
+  const cohort = selectCohort(feeders);
   const directory = path.join(process.cwd(), "data");
   await mkdir(directory, { recursive: true });
-  const file = path.join(directory, "candidates.json");
-  await writeFile(file, JSON.stringify(feeders, null, 2));
+  const candidates = path.join(directory, "candidates.json");
+  const cohortFile = path.join(process.cwd(), "cohort.json");
+  await writeFile(candidates, JSON.stringify(feeders, null, 2));
+  await writeFile(cohortFile, JSON.stringify(cohort, null, 2));
+  const phases = feeders.map((feeder) => feeder.powerMeasurementIds.length);
+  phases.sort((a, b) => a - b);
+  const median = phases[Math.floor(phases.length / 2)] ?? 0;
+  const sitesInCohort = new Set(cohort.map((feeder) => feeder.substationId)).size;
   console.log(
-    `${sites.length} substations in the static feed, ${inArea} inside the Oxford box, ${feeders.length} feeders with signed power and a rating.`,
+    `${sites.length} substations in the static feed, ${inArea} inside the Oxford box, ${feeders.length} feeders after grouping.`,
   );
-  console.log(`Wrote ${file}. Review it, then copy the keepers to cohort.json (200 feeders maximum).`);
+  console.log(
+    `Power series per feeder: min ${phases[0] ?? 0}, median ${median}, max ${phases[phases.length - 1] ?? 0}.`,
+  );
+  console.log(`Measurement fields: ${[...measurementKeys].sort().join(", ") || "none"}.`);
+  console.log(`Cohort keeps ${cohort.length} feeders on ${sitesInCohort} substations.`);
+  console.log(`Wrote ${candidates} and ${cohortFile}.`);
 }
 
 main().catch((error: unknown) => {

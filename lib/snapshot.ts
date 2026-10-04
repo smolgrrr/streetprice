@@ -8,7 +8,14 @@ export async function loadSnapshot(): Promise<Snapshot> {
   try {
     const raw = await readFile(file, "utf8");
     const parsed = JSON.parse(raw) as Snapshot;
-    if (parsed && Array.isArray(parsed.feeders) && parsed.feeders.length > 0) {
+    if (
+      parsed &&
+      (parsed.source === "nerda-historical" || parsed.source === "fixture") &&
+      parsed.window &&
+      parsed.comparison &&
+      Array.isArray(parsed.feeders) &&
+      parsed.feeders.length > 0
+    ) {
       return parsed;
     }
   } catch {

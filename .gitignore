@@ -43,6 +43,7 @@ next-env.d.ts
 
 # local NeRDA snapshots and discovery dumps
 /data
+/cohort.json
 
 # copied from maplibre-gl by scripts/copy-map-worker.mjs
 /public/maplibre/

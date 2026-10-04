@@ -32,6 +32,13 @@ export function formatSigned(value: number): string {
   return rounded.toString();
 }
 
+export function formatCurrencyPrice(value: number, signed = false): string {
+  const rounded = Math.round(value);
+  if (rounded < 0) return `−£${Math.abs(rounded)}`;
+  if (signed && rounded > 0) return `+£${rounded}`;
+  return `£${rounded}`;
+}
+
 export function formatPounds(value: number): string {
   const sign = value < 0 ? "−" : "";
   return `${sign}£${Math.abs(value).toFixed(2)}`;

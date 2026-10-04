@@ -1,13 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { bestCycle, cycleProfitGbp } from "./battery";
-import { addonColor } from "./color";
+import { addonColor, ratioColor } from "./color";
+import { compareFeeders, qualityFor, swing } from "./comparison";
 import { parseMarketIndex, wholesaleAt } from "./elexon";
 import { buildFixture } from "./fixture";
-import { parseValueHistory } from "./nerda";
+import { mergeAnalogSeries, parseAnalogSeries, parseValueHistory, threePhasePowerKw } from "./nerda";
 import {
   addonGbpPerMwh,
   capGbpPerMwh,
   currentLoading,
+  flatTargetKw,
   priceWindow,
   ratingKvaFromAmps,
   sumPhasePowerW,
@@ -57,6 +59,10 @@ describe("feeder measurements", () => {
 });
 
 describe("window", () => {
+  it("uses signed power so equal import and export balance at zero", () => {
+    expect(flatTargetKw([100, -100])).toBe(0);
+  });
+
   it("prices every sample against one flat target", () => {
     const samples = priceWindow(
       [
@@ -95,32 +101,60 @@ describe("battery", () => {
 
 describe("colour", () => {
   it("is teal at a full charge add-on and cadmium at a full discharge add-on", () => {
-    expect(addonColor(-300, 300)).toBe("rgb(15 110 106)");
-    expect(addonColor(300, 300)).toBe("rgb(210 69 30)");
-    expect(addonColor(0, 300)).toBe("rgb(23 32 42)");
+    expect(addonColor(-300, 300)).toBe("rgb(62 106 225)");
+    expect(addonColor(300, 300)).toBe("rgb(225 6 0)");
+    expect(addonColor(0, 300)).toBe("rgb(154 163 171)");
+  });
+
+  it("colours local ÷ wholesale from blue through grey to red", () => {
+    expect(ratioColor(0.5)).toBe("rgb(62 106 225)");
+    expect(ratioColor(1)).toBe("rgb(214 214 210)");
+    expect(ratioColor(2)).toBe("rgb(225 6 0)");
+    expect(ratioColor(-1)).toBe("rgb(37 78 196)");
+    expect(ratioColor(4)).toBe("rgb(225 6 0)");
   });
 });
 
 describe("fixture", () => {
   const snapshot = buildFixture();
 
-  it("covers two substations and five feeders over 24 hours", () => {
-    expect(new Set(snapshot.feeders.map((feeder) => feeder.substationId)).size).toBe(2);
-    expect(snapshot.feeders).toHaveLength(5);
-    expect(snapshot.feeders[0].samples).toHaveLength(144);
+  it("covers the three pilot substations and twelve feeders over 24 hours", () => {
+    expect(new Set(snapshot.feeders.map((feeder) => feeder.substationId)).size).toBe(3);
+    expect(snapshot.feeders).toHaveLength(12);
+    expect(snapshot.feeders[0].samples).toHaveLength(48);
   });
 
-  it("pays discharge on the evening feeder and charge on the solar feeder", () => {
-    const evening = snapshot.feeders.find((feeder) => feeder.id === "cowley-between-towns");
-    const solar = snapshot.feeders.find((feeder) => feeder.id === "cowley-crowell");
-    const flat = snapshot.feeders.find((feeder) => feeder.id === "cowley-barns");
-    expect(Math.max(...evening!.samples.map((sample) => sample.addon))).toBeCloseTo(
-      snapshot.capGbpPerMwh,
+  it("marks itself as a synthetic fallback", () => {
+    expect(snapshot.mode).toBe("synthetic");
+    expect(snapshot.source).toBe("fixture");
+    expect(snapshot.comparison.feederCount).toBe(12);
+  });
+});
+
+describe("research comparison", () => {
+  it("compares the median feeder add-on swing with wholesale swing", () => {
+    const snapshot = buildFixture();
+    const result = compareFeeders(snapshot.feeders);
+    expect(result.localSwingGbpPerMwh).toBeGreaterThan(0);
+    expect(result.wholesaleSwingGbpPerMwh).toBe(swing([44, 168]));
+    expect(result.ratio).toBeCloseTo(
+      result.localSwingGbpPerMwh / result.wholesaleSwingGbpPerMwh,
     );
-    expect(Math.min(...solar!.samples.map((sample) => sample.addon))).toBeLessThan(
-      -0.9 * snapshot.capGbpPerMwh,
-    );
-    expect(Math.max(...flat!.samples.map((sample) => Math.abs(sample.addon)))).toBe(0);
+  });
+
+  it("returns no ratio when wholesale has no range", () => {
+    const snapshot = buildFixture();
+    const feeders = snapshot.feeders.map((feeder) => ({
+      ...feeder,
+      samples: feeder.samples.map((sample) => ({ ...sample, wholesale: 50 })),
+    }));
+    expect(compareFeeders(feeders).ratio).toBeNull();
+  });
+
+  it("applies the documented quality thresholds", () => {
+    expect(qualityFor(40, 48).status).toBe("good");
+    expect(qualityFor(24, 48).status).toBe("partial");
+    expect(qualityFor(23, 48).status).toBe("insufficient");
   });
 });
 
@@ -151,5 +185,65 @@ describe("parsers", () => {
       ],
     });
     expect(points).toEqual([{ t: "2026-10-04T12:00:00.000Z", value: 9 }]);
+  });
+
+  it("reads real NeRDA phase payloads, buckets readings, and omits incomplete buckets", () => {
+    const payload = {
+      AnalogValues: [
+        {
+          aliasName: "VNH.feeder1.p1",
+          value_history: [
+            { __ts: "2026-09-29T00:01:00Z", value: 1 },
+            { __ts: "2026-09-29T00:11:00Z", value: 3 },
+            { __ts: "2026-09-29T00:31:00Z", value: 10 },
+          ],
+        },
+        {
+          aliasName: "VNH.feeder1.p2",
+          value_history: [{ _ts: "2026-09-29T00:05:00Z", value: 2 }],
+        },
+        {
+          aliasName: "VNH.feeder1.p3",
+          value_history: [{ __ts: "2026-09-29T00:20:00Z", value: -1 }],
+        },
+      ],
+    };
+    const analogs = parseAnalogSeries(payload);
+    expect(analogs).toHaveLength(3);
+    expect(threePhasePowerKw(analogs, 1)).toEqual([
+      { t: "2026-09-29T00:00:00.000Z", value: 3 },
+    ]);
+  });
+
+  it("deduplicates repeated timestamps in one analog", () => {
+    const analogs = parseAnalogSeries({
+      AnalogValues: [
+        {
+          aliasName: "feeder.p1",
+          value_history: [
+            { __ts: "2026-09-29T00:01:00Z", value: 1 },
+            { __ts: "2026-09-29T00:01:00Z", value: 4 },
+          ],
+        },
+      ],
+    });
+    expect(analogs[0].points).toEqual([{ t: "2026-09-29T00:01:00.000Z", value: 4 }]);
+  });
+
+  it("merges six-hour pages without duplicating their boundary reading", () => {
+    const merged = mergeAnalogSeries([
+      { aliasName: "feeder.p1", name: "", unit: "kW", points: [{ t: "2026-09-29T06:00:00.000Z", value: 1 }] },
+      {
+        aliasName: "feeder.p1",
+        name: "",
+        unit: "kW",
+        points: [
+          { t: "2026-09-29T06:00:00.000Z", value: 1 },
+          { t: "2026-09-29T06:30:00.000Z", value: 2 },
+        ],
+      },
+    ]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].points).toHaveLength(2);
   });
 });

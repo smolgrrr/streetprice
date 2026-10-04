@@ -40,7 +40,7 @@ export function sumPhasePowerW(phaseWatts: number[]): number {
 export function flatTargetKw(powerKw: number[]): number {
   if (powerKw.length === 0) return 0;
   let sum = 0;
-  for (const value of powerKw) sum += Math.abs(value);
+  for (const value of powerKw) sum += value;
   return sum / powerKw.length;
 }
 
@@ -62,6 +62,14 @@ export function addonGbpPerMwh(
 
 export function localGbpPerMwh(wholesaleGbpPerMwh: number, addon: number): number {
   return wholesaleGbpPerMwh + addon;
+}
+
+/** Local price divided by wholesale. Null when wholesale is zero or either price is missing. */
+export function localToWholesale(localGbpPerMwh: number, wholesaleGbpPerMwh: number): number | null {
+  if (!Number.isFinite(localGbpPerMwh) || !Number.isFinite(wholesaleGbpPerMwh) || wholesaleGbpPerMwh === 0) {
+    return null;
+  }
+  return localGbpPerMwh / wholesaleGbpPerMwh;
 }
 
 export function loadingRatio(powerKw: number, ratingKva: number): number {

@@ -1,6 +1,15 @@
 import type { PriceParameters, PricedSample } from "./price";
 
-export type RatingSource = "amps" | "kva" | "assumed-transformer-share";
+export type RatingSource = "amps" | "kva" | "assumed-transformer-share" | "assumed-feeder-fuse";
+
+export type QualityStatus = "good" | "partial" | "insufficient";
+
+export type DataQuality = {
+  expectedBuckets: number;
+  completeBuckets: number;
+  completeness: number;
+  status: QualityStatus;
+};
 
 export type Feeder = {
   id: string;
@@ -11,14 +20,30 @@ export type Feeder = {
   lon: number;
   ratingKva: number;
   ratingSource: RatingSource;
+  quality: DataQuality;
   samples: PricedSample[];
+};
+
+export type SnapshotComparison = {
+  localSwingGbpPerMwh: number;
+  wholesaleSwingGbpPerMwh: number;
+  ratio: number | null;
+  feederCount: number;
 };
 
 export type Snapshot = {
   updatedAt: string;
-  source: "fixture" | "nerda";
+  source: "fixture" | "nerda-historical";
+  mode: "synthetic" | "historical";
+  window: {
+    start: string;
+    end: string;
+    dataThrough: string;
+  };
   capGbpPerMwh: number;
+  ratingAssumptionAmps: number;
   parameters: PriceParameters;
+  comparison: SnapshotComparison;
   feeders: Feeder[];
 };
 
