@@ -8,6 +8,10 @@ const nextConfig: NextConfig = {
   turbopack: {
     root,
   },
+  // loadSnapshot reads this path at runtime. The dynamic path is not traced on its own.
+  outputFileTracingIncludes: {
+    "/api/snapshot": ["./data/snapshot.json"],
+  },
 };
 
 export default nextConfig;

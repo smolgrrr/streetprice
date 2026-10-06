@@ -41,8 +41,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# local NeRDA snapshots and discovery dumps
-/data
+# local NeRDA discovery dumps. The published historical snapshot is tracked.
+/data/*
+!/data/snapshot.json
 /cohort.json
 
 # copied from maplibre-gl by scripts/copy-map-worker.mjs
