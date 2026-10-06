@@ -50,6 +50,14 @@ describe("street traces", () => {
     }
   });
 
+  it("does not invent a street for a feeder with no road nearby", () => {
+    const layout = streetLayout([
+      { id: "far", substationId: "FAR", lat: 51.9, lon: -1.27 },
+    ]);
+    expect(layout.traces).toHaveLength(0);
+    expect(layout.stubs).toHaveLength(0);
+  });
+
   it("stays inside the Oxford neighbourhood", () => {
     for (const trace of layout.traces) {
       for (const line of trace.coordinates) {

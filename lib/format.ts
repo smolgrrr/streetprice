@@ -32,11 +32,16 @@ export function formatSigned(value: number): string {
   return rounded.toString();
 }
 
+/** Sterling per kWh. The model stores pounds per MWh. */
+export function formatKwhPrice(gbpPerMwh: number, signed = false): string {
+  const text = (Math.abs(gbpPerMwh) / 1000).toFixed(3);
+  if (gbpPerMwh < 0) return `−£${text}`;
+  if (signed && gbpPerMwh > 0) return `+£${text}`;
+  return `£${text}`;
+}
+
 export function formatCurrencyPrice(value: number, signed = false): string {
-  const rounded = Math.round(value);
-  if (rounded < 0) return `−£${Math.abs(rounded)}`;
-  if (signed && rounded > 0) return `+£${rounded}`;
-  return `£${rounded}`;
+  return formatKwhPrice(value, signed);
 }
 
 export function formatPounds(value: number): string {

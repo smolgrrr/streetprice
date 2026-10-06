@@ -4,22 +4,12 @@ import type { CohortFeeder, RatingSource } from "./types";
 /** LV feeder fuse used when NeRDA publishes no current limit and no transformer kVA. */
 export const ASSUMED_FUSE_AMPS = 200;
 
-export const COHORT_LIMIT = 12;
+/** Oxford and Cowley, the area this map prices. */
+export const LOCAL_AREA = { minLat: 51.7, maxLat: 51.82, minLon: -1.32, maxLon: -1.15 };
 
-export const PILOT_FEEDERS = new Set([
-  "VENABLES CLOSE\n4626_001_480_01",
-  "VENABLES CLOSE\n4626_001_480_02",
-  "VENABLES CLOSE\n4626_001_480_03",
-  "VENABLES CLOSE\n4626_001_480_04",
-  "VENABLES CLOSE\n4626_001_480_05",
-  "JUXON ST FLATS\n4626_001_500_01",
-  "JUXON ST FLATS\n4626_001_500_02",
-  "JUXON ST FLATS\n4626_001_500_03",
-  "ST BERNARDS ROAD\n4910_002_030_01",
-  "ST BERNARDS ROAD\n4910_002_030_03",
-  "ST BERNARDS ROAD\n4910_002_030_04",
-  "ST BERNARDS ROAD\n4910_002_030_05",
-]);
+export function inLocalArea(lat: number, lon: number): boolean {
+  return lat >= LOCAL_AREA.minLat && lat <= LOCAL_AREA.maxLat && lon >= LOCAL_AREA.minLon && lon <= LOCAL_AREA.maxLon;
+}
 
 export type SeriesPoint = {
   id: string;
@@ -143,12 +133,13 @@ export function feedersFromLines(lines: DiscoveredLine[], sharedKva = new Map<st
   return feeders;
 }
 
-/** The fixed, quality-checked Oxford pilot cohort, in map and UI order. */
+/** Every discovered feeder inside the Oxford box, in map and UI order. */
 export function selectCohort(feeders: CohortFeeder[]): CohortFeeder[] {
-  const selected = feeders.filter((feeder) => PILOT_FEEDERS.has(feeder.id));
-  return selected.sort(
-    (a, b) =>
-      a.substationName.localeCompare(b.substationName) ||
-      a.name.localeCompare(b.name, undefined, { numeric: true }),
-  );
+  return feeders
+    .filter((feeder) => inLocalArea(feeder.lat, feeder.lon))
+    .sort(
+      (a, b) =>
+        a.substationName.localeCompare(b.substationName) ||
+        a.name.localeCompare(b.name, undefined, { numeric: true }),
+    );
 }

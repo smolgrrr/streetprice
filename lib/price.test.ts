@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { bestCycle, cycleProfitGbp } from "./battery";
 import { addonColor, ratioColor } from "./color";
-import { compareFeeders, qualityFor, swing } from "./comparison";
+import { compareFeeders, heroAtTime, qualityFor, swing } from "./comparison";
 import { parseMarketIndex, wholesaleAt } from "./elexon";
 import { buildFixture } from "./fixture";
 import { mergeAnalogSeries, parseAnalogSeries, parseValueHistory, threePhasePowerKw } from "./nerda";
@@ -128,6 +128,26 @@ describe("fixture", () => {
     expect(snapshot.mode).toBe("synthetic");
     expect(snapshot.source).toBe("fixture");
     expect(snapshot.comparison.feederCount).toBe(12);
+  });
+});
+
+describe("hero at one half-hour", () => {
+  it("picks the local gap furthest from wholesale and the ratio furthest from 1", () => {
+    const hero = heroAtTime([
+      { local: 50, wholesale: 100 },
+      { local: 30, wholesale: 10 },
+    ]);
+    expect(hero.wholesaleGbpPerMwh).toBe(100);
+    expect(hero.localSwingGbpPerMwh).toBe(50 - 100);
+    expect(hero.ratio).toBeCloseTo(30 / 10);
+  });
+
+  it("is empty when that half-hour has no readings", () => {
+    expect(heroAtTime([])).toEqual({
+      localSwingGbpPerMwh: null,
+      wholesaleGbpPerMwh: null,
+      ratio: null,
+    });
   });
 });
 

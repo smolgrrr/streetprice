@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   ASSUMED_FUSE_AMPS,
   feedersFromLines,
-  PILOT_FEEDERS,
   selectCohort,
   type DiscoveredLine,
 } from "./cohort";
+import type { CohortFeeder } from "./types";
 import { ratingKvaFromAmps } from "./price";
 
 function line(overrides: Partial<DiscoveredLine> = {}): DiscoveredLine {
@@ -50,24 +50,32 @@ describe("feeder grouping", () => {
   });
 });
 
-describe("pilot cohort", () => {
-  it("selects only the twelve fixed quality-checked feeders", () => {
-    const feeders = [...PILOT_FEEDERS, "OTHER SITE\nother"].map((id, index) => ({
-      id,
-      name: `Feeder ${index + 1}`,
-      substationId: id.split("\n")[0],
-      substationName: id.split("\n")[0],
+describe("local area cohort", () => {
+  function feeder(overrides: Partial<CohortFeeder>): CohortFeeder {
+    return {
+      id: "SITE\n1",
+      name: "Feeder 1",
+      substationId: "SITE",
+      substationName: "Site",
       lat: 51.76,
       lon: -1.27,
       ratingKva: 139,
-      ratingSource: "assumed-feeder-fuse" as const,
+      ratingSource: "assumed-feeder-fuse",
       powerScaleToKw: 1,
       powerMeasurementIds: ["p"],
       currentMeasurementIds: [],
       currentLimitAmps: 200,
-    }));
-    const cohort = selectCohort(feeders);
-    expect(cohort).toHaveLength(12);
-    expect(new Set(cohort.map((feeder) => feeder.id))).toEqual(PILOT_FEEDERS);
+      ...overrides,
+    };
+  }
+
+  it("keeps every feeder inside the Oxford box, in name order", () => {
+    const cohort = selectCohort([
+      feeder({ id: "ZEBRA\n2", name: "Feeder 2", substationId: "ZEBRA", substationName: "Zebra Road" }),
+      feeder({ id: "OUT\n1", lat: 51.5, lon: -1.25, substationName: "Outside" }),
+      feeder({ id: "ALPHA\n10", name: "Feeder 10", substationId: "ALPHA", substationName: "Alpha Road", lat: 51.8, lon: -1.2 }),
+      feeder({ id: "ALPHA\n2", name: "Feeder 2", substationId: "ALPHA", substationName: "Alpha Road", lat: 51.8, lon: -1.2 }),
+    ]);
+    expect(cohort.map((item) => item.id)).toEqual(["ALPHA\n2", "ALPHA\n10", "ZEBRA\n2"]);
   });
 });

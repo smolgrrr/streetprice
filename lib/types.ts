@@ -45,6 +45,18 @@ export type Snapshot = {
   parameters: PriceParameters;
   comparison: SnapshotComparison;
   feeders: Feeder[];
+  /** Street traces for this snapshot. Absent on the synthetic fixture, which traces locally. */
+  streets?: {
+    traces: Array<{
+      feederId: string;
+      substationId: string;
+      coordinates: [number, number][][];
+    }>;
+    stubs: Array<{
+      substationId: string;
+      coordinates: [[number, number], [number, number]];
+    }>;
+  };
 };
 
 export type CohortFeeder = {

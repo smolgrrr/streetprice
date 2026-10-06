@@ -11,11 +11,14 @@
     "lint": "eslint",
     "test": "vitest run",
     "discover": "tsx ingest/discover.ts",
+    "streets": "node scripts/fetch-streets.mjs",
     "ingest": "tsx ingest/run.ts"
   },
   "dependencies": {
+    "@mapbox/vector-tile": "^3.0.0",
     "maplibre-gl": "^6.12.0",
     "next": "16.3.8",
+    "pbf": "^5.1.2",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },

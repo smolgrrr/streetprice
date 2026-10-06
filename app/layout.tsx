@@ -1,20 +1,14 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
 
-const sans = Inter({
-  subsets: ["latin"],
-  variable: "--font-sans",
-});
-
 export const metadata: Metadata = {
-  title: "Streetprice · Oxford pilot",
-  description: "A historical research model of how local grid conditions could affect electricity prices in Oxford.",
+  title: "Streetprice · Oxford",
+  description: "A historical model of how local grid conditions could affect electricity prices across Oxford.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={sans.variable}>
+    <html lang="en">
       <body>{children}</body>
     </html>
   );

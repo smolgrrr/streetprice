@@ -61,6 +61,9 @@ export async function nerdaGet(pathname: string, params: Record<string, string> 
         });
       },
     );
+    req.setTimeout(45_000, () => {
+      req.destroy(new Error(`NeRDA timed out on ${pathname}`));
+    });
     req.on("error", reject);
     req.write(body);
     req.end();

@@ -1,10 +1,8 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { feedersFromLines, selectCohort, type DiscoveredLine } from "../lib/cohort";
+import { feedersFromLines, inLocalArea, selectCohort, type DiscoveredLine } from "../lib/cohort";
 import { loadLocalEnv } from "../lib/env";
 import { fetchStatic } from "../lib/nerda";
-
-const BOX = { minLat: 51.7, maxLat: 51.82, minLon: -1.32, maxLon: -1.15 };
 
 loadLocalEnv();
 
@@ -60,9 +58,7 @@ function coords(record: Record<string, unknown>): { lat: number; lon: number } |
   return { lat, lon };
 }
 
-function inBox(lat: number, lon: number): boolean {
-  return lat >= BOX.minLat && lat <= BOX.maxLat && lon >= BOX.minLon && lon <= BOX.maxLon;
-}
+
 
 function measurementsOf(line: Record<string, unknown>): Measurement[] {
   return asArray(line.measurements).flatMap((item) => {
@@ -154,7 +150,7 @@ async function main(): Promise<void> {
 
   for (const [index, site] of sites.entries()) {
     const point = coords(site);
-    if (!point || !inBox(point.lat, point.lon)) continue;
+    if (!point || !inLocalArea(point.lat, point.lon)) continue;
     inArea += 1;
     const lines = asArray(site.lines).flatMap((item) => {
       const record = asRecord(item);

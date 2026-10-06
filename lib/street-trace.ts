@@ -34,6 +34,7 @@ type GraphNode = {
 
 const MAX_REACH_M = 280;
 const SNAP_TO_NODE_M = 12;
+const MAX_SNAP_M = 80;
 
 const LAT0 = (51.76 * Math.PI) / 180;
 const METRES_PER_DEG_LAT = 6371000 * (Math.PI / 180);
@@ -49,7 +50,9 @@ function metresBetween(a: Coord, b: Coord): number {
   return Math.hypot(dx, dy);
 }
 
-function buildGraph(): Map<string, GraphNode> {
+type StreetWay = { coords: number[][] };
+
+function buildGraph(ways: StreetWay[]): Map<string, GraphNode> {
   const nodes = new Map<string, GraphNode>();
   const ensure = (lon: number, lat: number) => {
     const id = keyOf(lon, lat);
@@ -71,7 +74,7 @@ function buildGraph(): Map<string, GraphNode> {
     node.out.push({ to, coords, meters });
   };
 
-  for (const way of network.ways) {
+  for (const way of ways) {
     let previous = ensure(way.coords[0][0], way.coords[0][1]);
     for (let index = 1; index < way.coords.length; index++) {
       const next = ensure(way.coords[index][0], way.coords[index][1]);
@@ -97,7 +100,7 @@ function nearestNode(nodes: Map<string, GraphNode>, lon: number, lat: number): s
   return bestDistance <= SNAP_TO_NODE_M ? best : null;
 }
 
-function project(nodes: Map<string, GraphNode>, lon: number, lat: number): { nodeId: string } {
+function project(nodes: Map<string, GraphNode>, lon: number, lat: number): { nodeId: string } | null {
   const existing = nearestNode(nodes, lon, lat);
   if (existing) return { nodeId: existing };
 
@@ -135,7 +138,7 @@ function project(nodes: Map<string, GraphNode>, lon: number, lat: number): { nod
       }
     }
   }
-  if (!best) throw new Error("Street network has no edges to snap to.");
+  if (!best || best.distance > MAX_SNAP_M) return null;
 
   const end = nearestNode(nodes, best.lon, best.lat);
   if (end) return { nodeId: end };
@@ -264,18 +267,22 @@ function pickPaths(paths: Coord[][], count: number): Coord[][] {
  * NeRDA has no cable geometry, so each feeder is given a distinct set of streets
  * in a short walk from the substation. The paths are not SSEN's cables.
  */
-export function streetLayout(feeders: TraceInput[]): { traces: StreetTrace[]; stubs: StreetStub[] } {
-  const nodes = buildGraph();
+export function streetLayout(
+  feeders: TraceInput[],
+  ways: StreetWay[] = network.ways,
+): { traces: StreetTrace[]; stubs: StreetStub[] } {
+  const nodes = buildGraph(ways);
   const bySubstation = new Map<string, TraceInput[]>();
   for (const feeder of feeders) {
     const group = bySubstation.get(feeder.substationId) ?? [];
     group.push(feeder);
     bySubstation.set(feeder.substationId, group);
   }
-  const sites = [...bySubstation.values()].map((group) => {
+  const sites = [...bySubstation.values()].flatMap((group) => {
     const first = group[0];
     const snap = project(nodes, first.lon, first.lat);
-    return { id: first.substationId, lat: first.lat, lon: first.lon, root: snap.nodeId, feeders: group };
+    if (!snap) return [];
+    return [{ id: first.substationId, lat: first.lat, lon: first.lon, root: snap.nodeId, feeders: group }];
   });
   const reach = new Map(sites.map((site) => [site.id, distances(nodes, site.root)]));
 
