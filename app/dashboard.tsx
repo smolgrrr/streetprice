@@ -243,7 +243,20 @@ export function Dashboard() {
   return (
     <main className="story">
       <section className="intro section" id="top">
-        <p className="eyebrow">Local grid signal · 24-hour view</p>
+        <div className="intro-kicker">
+          <p className="eyebrow">Local grid signal · 24-hour view</p>
+          <a
+            className="social-link"
+            href="https://x.com/dootonline"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Doot Online on X"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+            </svg>
+          </a>
+        </div>
         <div className="intro-title-row">
           <h1>Oxford, priced street by street</h1>
           <p className="as-of">Updated {formatStamp(snapshot.window.dataThrough)}</p>

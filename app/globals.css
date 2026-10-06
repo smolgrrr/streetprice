@@ -57,6 +57,31 @@ a { color: inherit; }
 
 .intro { padding-top: clamp(1.15rem, 2.2vw, 1.7rem); padding-bottom: 1rem; }
 
+.intro-kicker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.4rem;
+}
+
+.intro-kicker .eyebrow { margin: 0; }
+
+.social-link {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--ink);
+  transition: background 150ms ease, color 150ms ease;
+}
+
+.social-link:hover { background: var(--ink); color: var(--paper); }
+.social-link svg { width: 0.9rem; height: 0.9rem; fill: currentColor; }
+
 .intro h1 {
   margin: 0;
   font-size: clamp(2.4rem, 4.2vw, 3.35rem);
