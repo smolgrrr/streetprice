@@ -1,10 +1,10 @@
 import { readFileSync } from "node:fs";
 
 /** Load `.env.local` without overriding variables the process already has. */
-export function loadLocalEnv(): void {
+export function loadLocalEnv(file = process.env.ENV_FILE ?? ".env.local"): void {
   let text: string;
   try {
-    text = readFileSync(".env.local", "utf8");
+    text = readFileSync(file, "utf8");
   } catch {
     return;
   }

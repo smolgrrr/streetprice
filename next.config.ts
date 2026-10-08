@@ -10,7 +10,7 @@ const nextConfig: NextConfig = {
   },
   // loadSnapshot reads this path at runtime. The dynamic path is not traced on its own.
   outputFileTracingIncludes: {
-    "/api/snapshot": ["./data/snapshot.json"],
+    "/api/snapshot": ["./data/snapshot.json", "./data/constraint-model.json", "./data/constraint-search-result.json"],
   },
 };
 

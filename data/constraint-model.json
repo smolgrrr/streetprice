@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "observationRole": "historical-load-as-hypothetical-forecast",
+  "rampStart": 0.85,
+  "defaultImportLimit": {
+    "amps": 200,
+    "volts": 400,
+    "phases": 3,
+    "powerFactor": 1,
+    "provenance": "scenario-assumption"
+  },
+  "defaultImportCost": {
+    "gbpPerKva": 80,
+    "lifeYears": 45,
+    "discountRate": 0.05,
+    "bindingHoursPerYear": 15,
+    "provenance": "scenario-assumption"
+  },
+  "exportLimit": {
+    "value": null,
+    "provenance": "unavailable"
+  },
+  "search": {
+    "requestedMonths": 12,
+    "status": "Not completed: the NeRDA range endpoint down-samples long requests to hourly observations, so it cannot support the specified half-hour completeness test without a dedicated resumable scan.",
+    "selectedDay": null,
+    "coverage": null
+  },
+  "sources": [
+    {
+      "label": "SSEN NeRDA portal",
+      "url": "https://www.ssen.co.uk/our-services/tools-and-maps/near-real-time-data-access-nerda-portal/",
+      "use": "Historical LV feeder observations and network metadata"
+    },
+    {
+      "label": "SSEN network rating and loading information",
+      "url": "https://www.ssen.co.uk/our-services/competition-in-connections/alternative-provider-network-information/network-rating-and-loading-information/",
+      "use": "Provenance context; no asset-specific limits were found for this cohort"
+    }
+  ]
+}

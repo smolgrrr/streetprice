@@ -44,6 +44,8 @@ next-env.d.ts
 # local NeRDA discovery dumps. The published historical snapshot is tracked.
 /data/*
 !/data/snapshot.json
+!/data/constraint-model.json
+!/data/constraint-search-result.json
 /cohort.json
 
 # copied from maplibre-gl by scripts/copy-map-worker.mjs

@@ -3,670 +3,293 @@
 import { useEffect, useMemo, useState } from "react";
 import { SeriesChart } from "@/components/charts";
 import { PriceMap } from "@/components/price-map";
-import { addonColor, ratioColor } from "@/lib/color";
-import { formatKwhPrice, formatKw, formatPct, formatStamp, formatTime } from "@/lib/format";
+import {
+  constraintSignal,
+  defaultScenario,
+  importLimit,
+  signalCap,
+  signalColor,
+  type Scenario,
+  type Signal,
+} from "@/lib/constraint";
+import { formatStamp, formatTime } from "@/lib/format";
 import { substationsOf } from "@/lib/group";
-import { localToWholesale, type PricedSample } from "@/lib/price";
 import { streetLayout } from "@/lib/street-trace";
 import type { Feeder, Snapshot } from "@/lib/types";
 
-const HALF_HOUR_MS = 30 * 60 * 1000;
-const PLAYBACK_STEP_MS = 3000;
-
-function clockOf(snapshot: Snapshot): string[] {
-  const start = Date.parse(snapshot.window.start);
-  const end = Date.parse(snapshot.window.end);
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return [];
-  return Array.from(
-    { length: Math.round((end - start) / HALF_HOUR_MS) },
-    (_, index) => new Date(start + index * HALF_HOUR_MS).toISOString(),
-  );
-}
-
-function sampleAt(feeder: Feeder, t: string | undefined): PricedSample | undefined {
-  return t ? feeder.samples.find((sample) => sample.t === t) : undefined;
-}
-
-function averageAt(
-  feeders: Feeder[],
-  t: string | undefined,
-  field: "local" | "wholesale",
-): number | null {
-  const values = feeders.flatMap((feeder) => {
-    const sample = sampleAt(feeder, t);
-    return sample ? [sample[field]] : [];
-  });
-  if (values.length === 0) return null;
-  return values.reduce((sum, value) => sum + value, 0) / values.length;
-}
-
-function feederExtremesAt(feeders: Feeder[], t: string | undefined) {
-  let premium: { feeder: Feeder; delta: number } | null = null;
-  let discount: { feeder: Feeder; delta: number } | null = null;
-  for (const feeder of feeders) {
-    const sample = sampleAt(feeder, t);
-    if (!sample) continue;
-    const delta = sample.local - sample.wholesale;
-    if (delta > 0 && (!premium || delta > premium.delta)) premium = { feeder, delta };
-    if (delta < 0 && (!discount || delta < discount.delta)) discount = { feeder, delta };
-  }
-  return { premium, discount };
-}
-
-function stateOf(sample: PricedSample | undefined, cap: number): "Charge" | "Balanced" | "Discharge" | "No reading" {
-  if (!sample) return "No reading";
-  if (sample.addon > cap * 0.05) return "Discharge";
-  if (sample.addon < -cap * 0.05) return "Charge";
-  return "Balanced";
-}
-
-function qualityLabel(feeder: Feeder): string {
-  return feeder.quality.status === "good" ? "Good coverage" : feeder.quality.status === "partial" ? "Partial coverage" : "Insufficient";
-}
-
-function formatRatio(ratio: number): string {
-  const digits = Math.abs(ratio) >= 10 ? 1 : 2;
-  return `${ratio.toFixed(digits)}×`;
-}
+const mean = (values: Array<number | null>) => {
+  const valid = values.filter((value): value is number => value !== null && Number.isFinite(value));
+  return valid.length ? valid.reduce((sum, value) => sum + value, 0) / valid.length : null;
+};
+const money = (value: number | null) =>
+  value === null
+    ? "Unavailable"
+    : `${value < 0 ? "−" : value > 0 ? "+" : ""}£${Math.abs(value).toFixed(3)}`;
 
 export function Dashboard() {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState(false);
+  const [scenario, setScenario] = useState<Scenario>(defaultScenario);
   const [substationId, setSubstationId] = useState<string | null>(null);
   const [feederId, setFeederId] = useState<string | null>(null);
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [layer, setLayer] = useState<"pressure" | "price">("pressure");
+  const [combined, setCombined] = useState(false);
+  const [query, setQuery] = useState("");
   const [focus, setFocus] = useState<{ lat: number; lon: number; token: number } | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
+    let active = true;
     fetch("/api/snapshot")
-      .then(async (response) => {
-        if (!response.ok) throw new Error(String(response.status));
-        return (await response.json()) as Snapshot;
+      .then((response) => {
+        if (!response.ok) throw new Error("snapshot unavailable");
+        return response.json();
       })
       .then((data) => {
-        if (cancelled) return;
-        const clock = clockOf(data);
-        const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-        const through = clock.findLastIndex((t) => t <= data.window.dataThrough);
-        setSnapshot(data);
-        setIndex(reducedMotion ? Math.max(0, through) : 0);
-        setPlaying(!reducedMotion && clock.length > 1);
-        setSubstationId(null);
-        setFeederId(null);
+        if (active) setSnapshot(data as Snapshot);
       })
       .catch(() => {
-        if (!cancelled) setError("The Oxford snapshot could not be loaded.");
+        if (active) setError(true);
       });
     return () => {
-      cancelled = true;
+      active = false;
     };
   }, []);
 
-  useEffect(() => {
-    if (!playing || !snapshot) return;
-    const length = clockOf(snapshot).length;
-    if (length < 2) return;
-    const timer = window.setInterval(() => {
-      setIndex((current) => (current + 1) % length);
-    }, PLAYBACK_STEP_MS);
-    return () => window.clearInterval(timer);
-  }, [playing, snapshot]);
-
   const feeders = useMemo(() => snapshot?.feeders ?? [], [snapshot]);
   const groups = useMemo(() => substationsOf(feeders), [feeders]);
-  const layout = useMemo(() => {
-    if (snapshot?.streets) return snapshot.streets;
-    return streetLayout(
-      feeders.map((item) => ({
-        id: item.id,
-        substationId: item.substationId,
-        lat: item.lat,
-        lon: item.lon,
-      })),
+  const clock = useMemo(() => {
+    if (!snapshot) return [];
+    const start = Date.parse(snapshot.window.start);
+    const end = Date.parse(snapshot.window.end);
+    return Array.from(
+      { length: Math.round((end - start) / 1_800_000) },
+      (_, offset) => new Date(start + offset * 1_800_000).toISOString(),
     );
-  }, [snapshot, feeders]);
-  const clock = useMemo(() => (snapshot ? clockOf(snapshot) : []), [snapshot]);
-  const cursorTime = clock[index];
-  const substation = groups.find((group) => group.id === substationId);
-  const feeder = substation?.feeders.find((item) => item.id === feederId);
-  const scopedFeeders = feeder ? [feeder] : substation ? substation.feeders : feeders;
-  const sample = feeder ? sampleAt(feeder, cursorTime) : undefined;
-  const scopeLocalNow = averageAt(scopedFeeders, cursorTime, "local");
-  const scopeWholesaleNow = averageAt(scopedFeeders, cursorTime, "wholesale");
-  const instant = {
-    localSwingGbpPerMwh:
-      scopeLocalNow === null || scopeWholesaleNow === null ? null : scopeLocalNow - scopeWholesaleNow,
-    wholesaleGbpPerMwh: scopeWholesaleNow,
-    ratio:
-      scopeLocalNow === null || scopeWholesaleNow === null || scopeWholesaleNow === 0
-        ? null
-        : scopeLocalNow / scopeWholesaleNow,
-  };
-  const scopeLabel = feeder
-    ? `${substation?.name ?? "Selected substation"} ${feeder.name}`
-    : substation
-      ? `${substation.name} downstream LV feeders`
-      : "the Oxford distribution network";
-  const scopeKind = feeder ? "LV feeder" : substation ? "Substation average" : "Network average";
-  const comparisonFeeders = substation ? substation.feeders : feeders;
-  const extremes = feederExtremesAt(comparisonFeeders, cursorTime);
+  }, [snapshot]);
+  const layout = useMemo(
+    () => snapshot?.streets ?? streetLayout(feeders),
+    [snapshot, feeders],
+  );
+  const observations = useMemo(
+    () => new Map(feeders.map((feeder) => [feeder.id, new Map(feeder.samples.map((sample) => [sample.t, sample]))])),
+    [feeders],
+  );
+  const signals = useMemo(
+    () =>
+      new Map(
+        feeders.map((feeder) => [
+          feeder.id,
+          clock.map((time) => {
+            const sample = observations.get(feeder.id)?.get(time);
+            return sample
+              ? constraintSignal(sample.pKw, importLimit(feeder, scenario), scenario)
+              : null;
+          }),
+        ]),
+      ),
+    [feeders, clock, observations, scenario],
+  );
 
-  function seek(next: number) {
-    setPlaying(false);
-    setIndex(next);
+  useEffect(() => {
+    if (!playing || !clock.length) return;
+    const timer = window.setInterval(() => setIndex((current) => (current + 1) % clock.length), 3000);
+    return () => window.clearInterval(timer);
+  }, [playing, clock.length]);
+
+  const group = groups.find((item) => item.id === substationId);
+  const feeder = group?.feeders.find((item) => item.id === feederId);
+  const scope = feeder ? [feeder] : group ? group.feeders : feeders;
+  const now = (item: Feeder): Signal | null => signals.get(item.id)?.[index] ?? null;
+  const available = scope.filter((item) => now(item) !== null).length;
+  const priced = scope.filter((item) => now(item)?.price !== null && now(item) !== null).length;
+  const affected = scope.filter((item) => now(item)?.constrained === true).length;
+  const constrainedHours = scope.reduce(
+    (sum, item) => sum + (signals.get(item.id) ?? []).filter((signal) => signal?.constrained === true).length * 0.5,
+    0,
+  );
+  const extremeScope = group?.feeders ?? feeders;
+  const premium = extremeScope
+    .filter((item) => (now(item)?.price ?? 0) > 0)
+    .sort((a, b) => (now(b)?.price ?? 0) - (now(a)?.price ?? 0))[0];
+  const discount = extremeScope
+    .filter((item) => (now(item)?.price ?? 0) < 0)
+    .sort((a, b) => (now(a)?.price ?? 0) - (now(b)?.price ?? 0))[0];
+  const cap = signalCap(scenario.importCost, scenario);
+  const mapColor = (signal: Signal | null) =>
+    signalColor(
+      signal,
+      layer,
+      Math.max(cap, scenario.exportCost === null ? 0 : signalCap(scenario.exportCost, scenario)),
+    );
+
+  function select(nextSubstationId: string, nextFeederId?: string, move = false) {
+    setSubstationId(nextSubstationId);
+    setFeederId(nextFeederId ?? null);
+    const nextGroup = groups.find((item) => item.id === nextSubstationId);
+    if (move && nextGroup) {
+      setFocus({ lat: nextGroup.lat, lon: nextGroup.lon, token: Date.now() });
+    }
   }
-
-  function selectSubstation(id: string, moveMap = false) {
-    const group = groups.find((item) => item.id === id);
-    setSubstationId(id);
-    setFeederId(null);
-    if (moveMap && group) setFocus({ lat: group.lat, lon: group.lon, token: Date.now() });
-  }
-
-  function clearSelection() {
+  function clear() {
     setSubstationId(null);
     setFeederId(null);
   }
 
-  function selectFeeder(nextSubstationId: string, nextFeederId: string, moveMap = false) {
-    setSubstationId(nextSubstationId);
-    setFeederId(nextFeederId);
-    if (moveMap) {
-      const group = groups.find((item) => item.id === nextSubstationId);
-      if (group) setFocus({ lat: group.lat, lon: group.lon, token: Date.now() });
-    }
-  }
-
-  if (error) {
-    return (
-      <main className="status">
-        <p className="brand">Streetprice</p>
-        <h1>We could not load the Oxford map.</h1>
-        <p>{error}</p>
-      </main>
-    );
-  }
-
-  if (!snapshot || clock.length === 0) {
-    return (
-      <main className="status">
-        <p className="brand">Streetprice</p>
-        <h1>Loading the Oxford map…</h1>
-      </main>
-    );
-  }
-
-  const cap = snapshot.capGbpPerMwh;
-  const state = stateOf(sample, cap);
-  const stateColor = sample ? addonColor(sample.addon, cap) : "#9aa3ab";
-  const averageCoverage =
-    feeders.reduce((sum, item) => sum + item.quality.completeness, 0) / Math.max(1, feeders.length);
-  const selectedClockSamples = feeder
-    ? clock.map((t) => sampleAt(feeder, t))
-    : clock.map(() => undefined);
-  const localSeries = clock.map((t) => averageAt(scopedFeeders, t, "local"));
-  const wholesaleSeries = clock.map((t) => averageAt(scopedFeeders, t, "wholesale"));
-  const points = groups.map((group) => {
-    const ratios = group.feeders.flatMap((item) => {
-      const reading = sampleAt(item, cursorTime);
-      const ratio = reading ? localToWholesale(reading.local, reading.wholesale) : null;
-      return ratio === null ? [] : [ratio];
-    });
-    const strongestRatio = ratios.reduce<number | null>((strongest, ratio) => {
-      if (strongest === null) return ratio;
-      return Math.abs(ratio - 1) > Math.abs(strongest - 1) ? ratio : strongest;
-    }, null);
+  const scopeLabel = feeder
+    ? `${group?.name} · ${feeder.name}`
+    : group
+      ? `${group.name} · downstream feeders`
+      : "Oxford network";
+  const pressureSeries = clock.map((_, cursor) => {
+    if (feeder) return signals.get(feeder.id)?.[cursor]?.loading ?? null;
+    const readings = scope.map((item) => signals.get(item.id)?.[cursor] ?? null);
+    return readings.some((reading) => reading !== null)
+      ? readings.filter((reading) => reading?.constrained === true).length
+      : null;
+  });
+  const priceSeries = clock.map((_, cursor) =>
+    mean(scope.map((item) => signals.get(item.id)?.[cursor]?.price ?? null)),
+  );
+  const wholesale = clock.map((time) =>
+    mean(scope.map((item) => observations.get(item.id)?.get(time)?.wholesale ?? null)),
+  );
+  const combinedSeries = clock.map((time, cursor) =>
+    mean(
+      scope.map((item) => {
+        const signal = signals.get(item.id)?.[cursor];
+        const wholesalePrice = observations.get(item.id)?.get(time)?.wholesale;
+        return signal?.price !== null && signal?.price !== undefined && wholesalePrice !== undefined
+          ? signal.price + wholesalePrice / 1000
+          : null;
+      }),
+    ),
+  );
+  const points = groups.map((item) => {
+    const values = item.feeders.map(now);
+    const strongest = values
+      .filter((signal): signal is Signal => signal !== null && signal.loading !== null)
+      .sort((a, b) =>
+        layer === "price"
+          ? Math.abs(b.price ?? 0) - Math.abs(a.price ?? 0)
+          : (b.loading ?? 0) - (a.loading ?? 0),
+      )[0];
     return {
-      id: group.id,
-      name: group.name,
-      lat: group.lat,
-      lon: group.lon,
-      color: strongestRatio === null ? "#8d969e" : ratioColor(strongestRatio),
-      selected: group.id === substation?.id,
+      id: item.id,
+      name: item.name,
+      lat: item.lat,
+      lon: item.lon,
+      color: mapColor(strongest ?? values.find((signal) => signal !== null) ?? null),
+      selected: item.id === substationId,
     };
   });
-  const lines = layout.traces.map((trace) => {
-    const item = feeders.find((feederItem) => feederItem.id === trace.feederId);
-    const reading = item ? sampleAt(item, cursorTime) : undefined;
-    const ratio = reading ? localToWholesale(reading.local, reading.wholesale) : null;
-    return {
-      feederId: trace.feederId,
-      substationId: trace.substationId,
-      coordinates: trace.coordinates,
-      color: ratio === null ? "#c5c8cc" : ratioColor(ratio),
-      selected: trace.feederId === feeder?.id,
-    };
-  });
+  const lines = layout.traces.map((trace) => ({
+    ...trace,
+    color: mapColor(signals.get(trace.feederId)?.[index] ?? null),
+    selected: trace.feederId === feederId,
+  }));
+  const axis = (
+    <div className="chart-axis" aria-hidden="true">
+      {[0, 0.25, 0.5, 0.75, 1].map((fraction) => (
+        <span key={fraction}>
+          {clock.length
+            ? formatTime(clock[Math.min(clock.length - 1, Math.round(fraction * (clock.length - 1)))])
+            : ""}
+        </span>
+      ))}
+    </div>
+  );
+
+  if (error) return <main className="status"><h1>Snapshot unavailable</h1><p>Please reload to try again.</p></main>;
+  if (!snapshot) return <main className="status"><h1>Loading Oxford…</h1></main>;
 
   return (
     <main className="story">
-      <section className="intro section" id="top">
+      <section className="intro section">
         <div className="intro-kicker">
-          <p className="eyebrow">Local grid signal · 24-hour view</p>
-          <a
-            className="social-link"
-            href="https://x.com/dootonline"
-            target="_blank"
-            rel="noreferrer"
-            aria-label="Doot Online on X"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-            </svg>
+          <p className="eyebrow">Streetprice · experimental network signal</p>
+          <a className="social-link" href="https://x.com/dootonline" target="_blank" rel="noreferrer" aria-label="Doot Online on X">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
           </a>
         </div>
-        <div className="intro-title-row">
-          <h1>Oxford, priced street by street</h1>
-          <p className="as-of">Updated {formatStamp(snapshot.window.dataThrough)}</p>
-        </div>
-        <p className="intro-summary" id="pilot-result">
-          Across {groups.length} substations and {feeders.length} LV feeders, local grid conditions moved
-          modelled prices {snapshot.comparison.ratio === null ? "–" : <strong>{snapshot.comparison.ratio.toFixed(1)}×</strong>} as much as wholesale.
-        </p>
-        {snapshot.source === "fixture" ? (
-          <p className="data-banner">
-            The local NeRDA snapshot is unavailable, so this page is showing a clearly labelled synthetic example.
-          </p>
-        ) : null}
+        <h1>Price the constraint. Not the average.</h1>
+        <p className="intro-summary">Explore where a network price signal would rise as Oxford’s feeders approach their limits. {groups.length} substations · {feeders.length} LV feeders.</p>
+        <p className="scenario-notice">{snapshot.source === "fixture" ? "Synthetic example" : "Historical replay"} · {formatStamp(snapshot.window.start)}–{formatStamp(snapshot.window.end)} · Assumed limits and costs. Observed load stands in for a forecast; this is not a live tariff.</p>
       </section>
 
-      <section className="hero section" aria-labelledby="pilot-result">
+      <section className="hero section">
         <div className="map-column">
-          <div className="map-card">
-            <PriceMap
-              points={points}
-              lines={lines}
-              stubs={layout.stubs}
-              onSelectSubstation={(id) => selectSubstation(id)}
-              onSelectFeeder={selectFeeder}
-              onClearSelection={clearSelection}
-              focus={focus}
-            />
-            <div className="map-legend" aria-label="Local price divided by wholesale">
-              <span>0.5×</span>
-              <i className="ratio-scale" />
-              <span>2×</span>
-              <span className="scale-caption">Local ÷ wholesale</span>
-            </div>
+          <div className="layer-control" role="group" aria-label="Map layer">
+            <button aria-pressed={layer === "pressure"} onClick={() => setLayer("pressure")}>Constraint pressure</button>
+            <button aria-pressed={layer === "price"} onClick={() => setLayer("price")}>Price signal</button>
           </div>
+          <div className="map-card">
+            <PriceMap points={points} lines={lines} stubs={layout.stubs} focus={focus} ariaLabel={`Oxford LV feeders coloured by ${layer === "pressure" ? "constraint pressure" : "network price signal"}. Illustrative street traces are not mapped cables.`} onSelectSubstation={(id) => select(id)} onSelectFeeder={(sid, fid) => select(sid, fid)} onClearSelection={clear} />
+            <div className="map-legend constraint-legend"><span className="import-key">● Import</span><span className="export-key">● Export</span><span className="neutral-key">● Neutral</span><span className="unknown-key">● Unknown limit</span><span className="missing-key">● Missing</span></div>
+          </div>
+          <p className="map-caption">Stronger colour = {layer === "pressure" ? "closer to the assumed limit" : "larger signal"}. Substation dots show the strongest known feeder; street traces are illustrative, not cable routes.</p>
         </div>
 
-        <section className="comparison-panel" aria-labelledby="comparison-title">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">{scopeKind}</p>
-              <h2 id="comparison-title">Local vs wholesale price</h2>
-              <p className="scope-label">{scopeLabel}</p>
-            </div>
-            <div className="chart-key" aria-label="Chart legend">
-              <span><i className="key-line local" />{feeder ? "Modelled local" : "Average local"}</span>
-              <span><i className="key-line wholesale" />Wholesale</span>
-            </div>
+        <section className="comparison-panel">
+          <div className="section-heading"><div><p className="eyebrow">{feeder ? "LV feeder" : group ? "Substation" : "Whole network"}</p><h2>{scopeLabel}</h2><p className="scope-label">{available}/{scope.length} load readings · {priced}/{scope.length} priced at {clock[index] ? formatTime(clock[index]) : "–"}</p></div></div>
+          <div className="chart-card">
+            <p className="chart-label">{feeder ? "Loading against the applicable limit" : "Feeders above their applicable limit"}</p>
+            <SeriesChart cursor={index} ariaLabel="Constraint pressure over the replay window" yAxis={{ label: feeder ? "Loading (%)" : "Affected feeders", format: "number" }} series={[
+              { values: pressureSeries.map((value) => value === null ? null : feeder ? value * 100 : value), color: "#d43f29", width: 2.5 },
+              ...(feeder ? [{ values: clock.map(() => 100), color: "#939ba5", width: 1, dash: "5 5" }, { values: clock.map(() => scenario.rampStart * 100), color: "#d4a28b", width: 1, dash: "3 5" }] : []),
+            ]} />
+            {axis}
           </div>
           <div className="chart-card">
-            <SeriesChart
-              cursor={index}
-              ariaLabel={`${feeder ? "Modelled" : "Average"} local and wholesale price for ${scopeLabel} over 24 hours`}
-              yAxis={{ label: "Price (£/kWh)", format: "price" }}
-              series={[
-                { values: localSeries.map((value) => (value === null ? null : value / 1000)), color: "#171a20", width: 2.5 },
-                { values: wholesaleSeries.map((value) => (value === null ? null : value / 1000)), color: "#8e8e8e", width: 2, dash: "7 6" },
-              ]}
-            />
-            <div className="chart-axis" aria-hidden="true"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span></div>
+            <p className="chart-label">{feeder ? "Network price signal" : "Available-sample mean network signal"}</p>
+            <SeriesChart cursor={index} ariaLabel="Network signal and optional wholesale comparison" yAxis={{ label: "£/kWh", format: "price" }} series={[
+              { values: priceSeries, color: "#171a20", width: 2.5 },
+              ...(combined ? [{ values: wholesale.map((value) => value === null ? null : value / 1000), color: "#939ba5", width: 1.5, dash: "5 5" }, { values: combinedSeries, color: "#3e6ae1", width: 2 }] : []),
+            ]} />
+            {axis}
+            <label className="comparison-toggle"><input type="checkbox" checked={combined} onChange={(event) => setCombined(event.target.checked)} /> Show wholesale (grey) + illustrative combined price (blue)</label>
           </div>
         </section>
 
-        <dl className="hero-metrics">
-          <Metric
-            label="Average local price delta"
-            value={instant.localSwingGbpPerMwh === null ? "–" : formatKwhPrice(instant.localSwingGbpPerMwh)}
-            unit={instant.localSwingGbpPerMwh === null ? undefined : "/kWh"}
-          />
-          <Metric
-            label="Wholesale price"
-            value={instant.wholesaleGbpPerMwh === null ? "–" : formatKwhPrice(instant.wholesaleGbpPerMwh)}
-            unit={instant.wholesaleGbpPerMwh === null ? undefined : "/kWh"}
-          />
-          <Metric label="Average local ÷ wholesale" value={instant.ratio === null ? "–" : formatRatio(instant.ratio)} />
-          <Metric
-            label="Max premium feeder"
-            value={extremes.premium ? formatKwhPrice(extremes.premium.delta, true) : "–"}
-            unit={extremes.premium ? "/kWh" : undefined}
-            detail={extremes.premium?.feeder.substationName ?? "No positive delta"}
-            onDetailClick={
-              extremes.premium
-                ? () => selectFeeder(extremes.premium!.feeder.substationId, extremes.premium!.feeder.id, true)
-                : undefined
-            }
-            tone="premium"
-          />
-          <Metric
-            label="Max discount feeder"
-            value={extremes.discount ? formatKwhPrice(extremes.discount.delta, true) : "–"}
-            unit={extremes.discount ? "/kWh" : undefined}
-            detail={extremes.discount?.feeder.substationName ?? "No negative delta"}
-            onDetailClick={
-              extremes.discount
-                ? () => selectFeeder(extremes.discount!.feeder.substationId, extremes.discount!.feeder.id, true)
-                : undefined
-            }
-            tone="discount"
-          />
+        <dl className="hero-metrics constraint-metrics">
+          <Metric label="Affected feeders now" value={`${affected}`} detail="Above known or assumed limit" />
+          <Metric label="Constrained feeder-hours" value={constrainedHours.toFixed(1)} detail="Observed in this replay window" />
+          <Metric label="Max import surcharge" value={premium ? money(now(premium)?.price ?? null) : money(0)} tone="premium" detail={premium?.substationName ?? "No import surcharge now"} onClick={premium ? () => select(premium.substationId, premium.id, true) : undefined} />
+          <Metric label="Max export incentive" value={scenario.exportKw === null || scenario.exportCost === null ? "Unavailable" : discount ? money(now(discount)?.price ?? null) : money(0)} tone="discount" detail={discount?.substationName ?? "Reverse-flow assumptions required"} onClick={discount ? () => select(discount.substationId, discount.id, true) : undefined} />
         </dl>
 
         <div className="map-follow">
-          <TimeScrubber
-            index={index}
-            clockLength={clock.length}
-            cursorTime={cursorTime}
-            playing={playing}
-            onChange={seek}
-            onTogglePlay={() => setPlaying((value) => !value)}
-          />
-          <SubstationChooser
-            groups={groups}
-            selectedId={substation?.id ?? null}
-            onSelect={(id) => selectSubstation(id, true)}
-            onClear={clearSelection}
-          />
+          <div className="time-control"><div><button className="play" aria-pressed={playing} onClick={() => setPlaying(!playing)}>{playing ? "Pause" : "Play"}</button><span>30 min every 3 s</span><strong>{clock[index] ? formatStamp(clock[index]) : "–"}</strong></div><input type="range" aria-label="Time of day" min={0} max={Math.max(0, clock.length - 1)} value={index} onChange={(event) => { setPlaying(false); setIndex(Number(event.target.value)); }} /></div>
+          <div className="substation-search"><label><span>Explore a substation</span><input aria-label="Search substations" placeholder="Search Oxford" value={query} onChange={(event) => setQuery(event.target.value)} /></label><div className="substation-results"><button className={!group ? "location on" : "location"} onClick={clear}>Whole network</button>{groups.filter((item) => item.name.toLowerCase().includes(query.toLowerCase())).map((item) => <button key={item.id} className={group?.id === item.id ? "location on" : "location"} onClick={() => select(item.id, undefined, true)}>{item.name}</button>)}</div></div>
         </div>
       </section>
 
-      {substation ? <section className="section feeder-section" aria-labelledby="feeder-title">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">Look under the bonnet</p>
-            <h2 id="feeder-title">Feeder detail</h2>
-          </div>
-          <p className="section-note">Select a feeder to see what drives its modelled price.</p>
-        </div>
-        <div className="feeder-layout">
-          <nav className="feeder-nav" aria-label={`Feeders at ${substation.name}`}>
-            <p className="nav-title">{substation.name}</p>
-            {substation.feeders.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                className={item.id === feeder?.id ? "feeder-button on" : "feeder-button"}
-                onClick={() => setFeederId(item.id)}
-                aria-pressed={item.id === feeder?.id}
-              >
-                <span>{item.name}<small>{item.quality.completeBuckets} of {item.quality.expectedBuckets} readings</small></span>
-                <span className={`quality ${item.quality.status}`}>{Math.round(item.quality.completeness * 100)}%</span>
-              </button>
-            ))}
-          </nav>
+      {group ? <section className="section feeder-section"><h2>{group.name}</h2><div className="location-switcher"><button className={!feeder ? "location on" : "location"} onClick={() => setFeederId(null)}>All downstream feeders</button>{group.feeders.map((item) => <button className={feeder?.id === item.id ? "location on" : "location"} key={item.id} onClick={() => select(group.id, item.id)}>{item.name}</button>)}</div>{feeder ? <p className="scenario-notice">Import limit: {importLimit(feeder, scenario).toFixed(1)} kW ({feeder.ratingSource.startsWith("assumed") ? "scenario assumption" : "asset rating × assumed power factor"}). Export limit: {scenario.exportKw ?? "unknown"}{scenario.exportKw !== null ? " kW (assumed)" : ""}. Missing readings and unknown export signals remain gaps, not zero.</p> : null}</section> : null}
 
-          {feeder ? <article className="feeder-detail">
-            <div className="feeder-head">
-              <div>
-                <p className="eyebrow">{substation.name}</p>
-                <h3>{feeder.name}</h3>
-              </div>
-              <span className={`quality-pill ${feeder.quality.status}`}>{qualityLabel(feeder)} · {formatPct(feeder.quality.completeness)}</span>
-            </div>
-
-            <div className="now-card">
-              <div>
-                <p className="now-label">At {cursorTime ? formatTime(cursorTime) : "–"}</p>
-                <p className="now-price" style={{ color: stateColor }}>{sample ? formatKwhPrice(sample.local) : "–"}<small>/kWh</small></p>
-                <p className="state" style={{ color: stateColor }}>{state}</p>
-              </div>
-              {sample ? (
-                <dl className="detail-metrics">
-                  <Metric label="Wholesale" value={formatKwhPrice(sample.wholesale)} unit="/kWh" />
-                  <Metric label="Local add-on" value={formatKwhPrice(sample.addon, true)} unit="/kWh" />
-                  <Metric label="Signed power" value={formatKw(sample.pKw)} />
-                  <Metric label="Flat target" value={formatKw(sample.targetKw)} />
-                  <Metric label="Modelled loading" value={formatPct(sample.loading)} />
-                  <Metric label="Assumed rating" value={`${Math.round(feeder.ratingKva)} kVA`} />
-                </dl>
-              ) : (
-                <p className="missing-reading">All three power phases were not available for this half-hour, so no value has been estimated.</p>
-              )}
-            </div>
-
-            <div className="power-chart">
-              <div className="chart-title-row">
-                <h4>Signed feeder power</h4>
-                <div className="chart-key"><span><i className="key-line power" />Observed</span><span><i className="key-line target" />Signed target</span></div>
-              </div>
-              <SeriesChart
-                cursor={index}
-                ariaLabel={`Signed feeder power and flat target for ${substation.name} ${feeder.name}`}
-                series={[
-                  { values: selectedClockSamples.map((item) => item?.pKw ?? null), color: stateColor, width: 2.5 },
-                  { values: selectedClockSamples.map((item) => item?.targetKw ?? null), color: "#8e8e8e", width: 2, dash: "7 6" },
-                ]}
-              />
-            </div>
-          </article> : (
-            <article className="feeder-detail selection-empty">
-              <p>Select an LV feeder to see its half-hourly power, loading, and local price detail.</p>
-            </article>
-          )}
-        </div>
-      </section> : null}
-
-      <section className="section disclosures" aria-label="Method and assumptions">
-        <details>
-          <summary>How to read this</summary>
-          <p>
-            Positive local add-ons encourage discharge when demand is above the feeder’s signed daily
-            target. Negative add-ons encourage charge when demand is below it or power is exporting.
-            “Balanced” means the add-on is within 5% of the model cap. The map draws a line from each
-            substation along nearby streets, coloured by that feeder’s local price divided by wholesale.
-            Those paths are not SSEN cable routes. Grey means no reading for that half-hour.
-            Max premium and discount identify the feeders furthest above and below wholesale at the selected
-            half-hour, across either the whole network or the selected substation.
-          </p>
-        </details>
-        <details>
-          <summary>Model assumptions</summary>
-          <p>
-            Where no published limit is available, a feeder uses an explicit {snapshot.ratingAssumptionAmps} A,
-            400 V three-phase rating assumption. The add-on reaches ±{formatKwhPrice(cap)}/kWh
-            when signed power is half a rating away from its signed mean. The cap is derived from £{snapshot.parameters.gbpPerKva}/kVA,
-            a {snapshot.parameters.lifeYears}-year life, {(snapshot.parameters.discountRate * 100).toFixed(0)}% discount rate,
-            and {snapshot.parameters.bindingHoursPerYear} binding hours per year.
-          </p>
-        </details>
-        <details>
-          <summary>Data quality and method</summary>
-          <p>
-            NeRDA readings are averaged into 30-minute buckets for each phase, then all three phases are
-            summed. A bucket is omitted if any phase is missing; gaps are not interpolated. This map
-            includes the {snapshot.comparison.feederCount} feeders in the Oxford box with at least 50% complete
-            buckets. Feeders without a reading at the selected time are grey. Average coverage across the
-            mapped feeders is {formatPct(averageCoverage)}.
-          </p>
-          <p>Current measurements are not used because the returned series could not yet be validated consistently as amperage magnitude.</p>
-        </details>
-        {feeder && substation ? <details>
-          <summary>View selected feeder data</summary>
-          <div className="table-wrap">
-            <table>
-              <caption>{substation.name} {feeder.name}, complete half-hour readings</caption>
-              <thead><tr><th>Time</th><th>Power</th><th>Target</th><th>Add-on</th><th>Wholesale</th><th>Local</th></tr></thead>
-              <tbody>
-                {feeder.samples.map((item) => (
-                  <tr key={item.t}>
-                    <td>{formatStamp(item.t)}</td><td>{formatKw(item.pKw)}</td><td>{formatKw(item.targetKw)}</td>
-                    <td>{formatKwhPrice(item.addon, true)}</td><td>{formatKwhPrice(item.wholesale)}</td><td>{formatKwhPrice(item.local)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </details> : null}
+      <section className="section disclosures">
+        <details open><summary>Scenario controls · all costs below are assumptions</summary><div className="scenario-controls">
+          <NumberInput label="Ramp starts at (% of limit)" value={scenario.rampStart * 100} min={0} max={99} onChange={(value) => setScenario({ ...scenario, rampStart: value / 100 })} />
+          <NumberInput label="Fallback import fuse (A)" value={scenario.importAmps} min={1} max={2000} onChange={(value) => setScenario({ ...scenario, importAmps: value })} />
+          <NumberInput label="Power factor" value={scenario.powerFactor} min={0.1} max={1} step={0.05} onChange={(value) => setScenario({ ...scenario, powerFactor: value })} />
+          <NumberInput label="Import reinforcement (£/kVA)" value={scenario.importCost} min={0} max={100000} onChange={(value) => setScenario({ ...scenario, importCost: value })} />
+          <NumberInput label="Expected binding hours/year" value={scenario.bindingHours} min={0.5} max={8760} step={0.5} onChange={(value) => setScenario({ ...scenario, bindingHours: value })} />
+          <NumberInput label="Asset life (years)" value={scenario.lifeYears} min={1} max={100} onChange={(value) => setScenario({ ...scenario, lifeYears: value })} />
+          <NumberInput label="Discount rate (%)" value={scenario.discountRate * 100} min={0} max={50} step={0.5} onChange={(value) => setScenario({ ...scenario, discountRate: value / 100 })} />
+        </div><label className="comparison-toggle"><input type="checkbox" checked={scenario.exportKw !== null} onChange={(event) => setScenario({ ...scenario, exportKw: event.target.checked ? 100 : null, exportCost: event.target.checked ? 40 : null })} /> Enable an assumed reverse-flow limit and cost (not verified)</label>{scenario.exportKw !== null ? <div className="scenario-controls"><NumberInput label="Reverse-flow limit (kW)" value={scenario.exportKw} min={1} max={2000} onChange={(value) => setScenario({ ...scenario, exportKw: value })} /><NumberInput label="Reverse reinforcement (£/kVA)" value={scenario.exportCost ?? 0} min={0} max={100000} onChange={(value) => setScenario({ ...scenario, exportCost: value })} /></div> : null}
+        <p>The import signal rises linearly from zero at {(scenario.rampStart * 100).toFixed(0)}% loading to {money(cap)}/kWh at 100%. It stays capped above the limit. Export uses its own limit and cost; ordinary low demand earns no network incentive.</p><p>Changes update this replay only, not the historical day selection. Expected annual binding hours are an input, not an extrapolation from this day.</p></details>
+        <details><summary>Historical coverage and day selection</summary><p>{snapshot.constraintModel?.search.status ?? "Annual search has not been completed. This is the existing one-day historical replay, not the most constrained day of the year."}</p><p>Day selection requires ≥90% complete half-hours per feeder and a common cohort eligible on ≥90% of searched London-calendar days. Rank by exceedance half-hours, then affected feeders, exceedance energy, and earliest date. DST days use their actual length.</p><button className="secondary-action" type="button" disabled title="Requires a completed half-hour historical scan">Re-rank day after a completed scan</button></details>
+        <details><summary>Model and provenance</summary><p>Network signal = capped import ramp − capped reverse-flow ramp. Cap (£/kWh) = reinforcement cost (£/kVA) × capital recovery factor ÷ power factor ÷ expected binding hours. Fixed revenue-recovery charges and battery response are not modelled. No avoided-capex or upgrade-deferral claim is made.</p><p>All current feeder limits are assumptions unless explicitly identified as asset ratings. SSEN’s published generic connection costs are not asset-specific incremental reinforcement costs. <a href="https://www.ssen.co.uk/our-services/tools-and-maps/near-real-time-data-access-nerda-portal/">SSEN NeRDA</a> provides the historical observations. Export capability cannot be inferred from an import fuse.</p></details>
       </section>
-
-      <footer className="footer section">
-        <p>Contains BMRS data © Elexon Limited. Feeder state derived locally from SSEN NeRDA. Street lines © OpenStreetMap contributors.</p>
-        <p>This is an experimental model, not an SSEN tariff, operational instruction, or forecast.</p>
-      </footer>
+      <footer className="footer section"><p>SSEN NeRDA observations · BMRS data © Elexon Limited · illustrative street lines © OpenStreetMap contributors.</p><p>Experimental scenario, not an SSEN tariff, operational instruction, or forecast.</p></footer>
     </main>
   );
 }
 
-function SubstationChooser({
-  groups,
-  selectedId,
-  onSelect,
-  onClear,
-}: {
-  groups: Array<{ id: string; name: string }>;
-  selectedId: string | null;
-  onSelect: (id: string) => void;
-  onClear: () => void;
-}) {
-  const [query, setQuery] = useState("");
-  if (groups.length <= 8) {
-    return (
-      <div className="location-switcher" role="group" aria-label="Choose a substation">
-        <button
-          type="button"
-          className={selectedId === null ? "location on" : "location"}
-          onClick={onClear}
-          aria-pressed={selectedId === null}
-        >
-          Whole network
-        </button>
-        {groups.map((group) => (
-          <button
-            key={group.id}
-            type="button"
-            className={group.id === selectedId ? "location on" : "location"}
-            onClick={() => onSelect(group.id)}
-            aria-pressed={group.id === selectedId}
-          >
-            {group.name}
-          </button>
-        ))}
-      </div>
-    );
-  }
-
-  const needle = query.trim().toLowerCase();
-  const matches = groups.filter((group) => group.name.toLowerCase().includes(needle));
-  return (
-    <div className="substation-search">
-      <label>
-        <span>{groups.length} substations</span>
-        <input
-          value={query}
-          placeholder="Search"
-          aria-label="Search substations"
-          onChange={(event) => setQuery(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" && matches[0]) onSelect(matches[0].id);
-          }}
-        />
-      </label>
-      <div className="substation-results" role="listbox" aria-label="Substations">
-        {!needle ? (
-          <button
-            type="button"
-            role="option"
-            aria-selected={selectedId === null}
-            className={selectedId === null ? "location on" : "location"}
-            onClick={() => {
-              setQuery("");
-              onClear();
-            }}
-          >
-            Whole network
-          </button>
-        ) : null}
-        {matches.map((group) => (
-          <button
-            key={group.id}
-            type="button"
-            role="option"
-            aria-selected={group.id === selectedId}
-            className={group.id === selectedId ? "location on" : "location"}
-            onClick={() => {
-              setQuery("");
-              onSelect(group.id);
-            }}
-          >
-            {group.name}
-          </button>
-        ))}
-      </div>
-      {matches.length === 0 ? <p className="substation-empty">No substation matches that name.</p> : null}
-    </div>
-  );
+function NumberInput({ label, value, min, max, step = 1, onChange }: { label: string; value: number; min: number; max: number; step?: number; onChange: (value: number) => void }) {
+  return <label>{label}<input type="number" value={value} min={min} max={max} step={step} onChange={(event) => { const next = event.target.valueAsNumber; if (Number.isFinite(next) && next >= min && next <= max) onChange(next); }} /></label>;
 }
 
-function TimeScrubber({
-  index,
-  clockLength,
-  cursorTime,
-  playing,
-  onChange,
-  onTogglePlay,
-}: {
-  index: number;
-  clockLength: number;
-  cursorTime: string | undefined;
-  playing: boolean;
-  onChange: (index: number) => void;
-  onTogglePlay: () => void;
-}) {
-  return (
-    <div className="time-control">
-      <div>
-        <button type="button" className="play" aria-pressed={playing} onClick={onTogglePlay}>
-          {playing ? "Pause" : "Play"}
-        </button>
-        <span>30 min every 3 s</span>
-        <strong>{cursorTime ? formatStamp(cursorTime) : "–"}</strong>
-      </div>
-      <input
-        type="range"
-        min={0}
-        max={Math.max(0, clockLength - 1)}
-        value={index}
-        aria-label="Time of day"
-        aria-valuetext={cursorTime ? formatStamp(cursorTime) : ""}
-        onChange={(event) => onChange(Number(event.target.value))}
-      />
-    </div>
-  );
-}
-
-function Metric({
-  label,
-  value,
-  unit,
-  detail,
-  onDetailClick,
-  tone,
-  compact = false,
-}: {
-  label: string;
-  value: string;
-  unit?: string;
-  detail?: string;
-  onDetailClick?: () => void;
-  tone?: "premium" | "discount";
-  compact?: boolean;
-}) {
-  return (
-    <div className={`metric${tone ? ` ${tone}` : ""}${compact ? " compact" : ""}`}>
-      <dt>{label}</dt>
-      <dd>{value}{unit ? <small>{unit}</small> : null}</dd>
-      {detail ? (
-        onDetailClick ? (
-          <button type="button" className="metric-detail metric-link" onClick={onDetailClick}>{detail}</button>
-        ) : (
-          <p className="metric-detail">{detail}</p>
-        )
-      ) : null}
-    </div>
-  );
+function Metric({ label, value, detail, tone, onClick }: { label: string; value: string; detail: string; tone?: string; onClick?: () => void }) {
+  return <div className={`metric ${tone ?? ""}`}><dt>{label}</dt><dd>{value}</dd>{onClick ? <button className="metric-detail metric-link" onClick={onClick}>{detail}</button> : <p className="metric-detail">{detail}</p>}</div>;
 }

@@ -12,7 +12,8 @@
     "test": "vitest run",
     "discover": "tsx ingest/discover.ts",
     "streets": "node scripts/fetch-streets.mjs",
-    "ingest": "tsx ingest/run.ts"
+    "ingest": "tsx ingest/run.ts",
+    "search": "tsx ingest/search.ts"
   },
   "dependencies": {
     "@mapbox/vector-tile": "^3.0.0",

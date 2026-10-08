@@ -45,6 +45,16 @@ export type Snapshot = {
   parameters: PriceParameters;
   comparison: SnapshotComparison;
   feeders: Feeder[];
+  constraintModel?: {
+    version: number;
+    observationRole: "historical-load-as-hypothetical-forecast";
+    rampStart: number;
+    defaultImportLimit: { amps: number; volts: number; phases: number; powerFactor: number; provenance: "scenario-assumption" };
+    defaultImportCost: { gbpPerKva: number; lifeYears: number; discountRate: number; bindingHoursPerYear: number; provenance: "scenario-assumption" };
+    exportLimit: { value: null; provenance: "unavailable" };
+    search: { requestedMonths: number; status: string; selectedDay: null | string; coverage: null | number };
+    sources: Array<{ label: string; url: string; use: string }>;
+  };
   /** Street traces for this snapshot. Absent on the synthetic fixture, which traces locally. */
   streets?: {
     traces: Array<{

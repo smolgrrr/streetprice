@@ -46,6 +46,7 @@ export function PriceMap({
   onSelectSubstation,
   onSelectFeeder,
   onClearSelection,
+  ariaLabel = "Oxford LV feeder constraint map. Illustrative street traces are not mapped cables.",
 }: {
   points: MapPoint[];
   lines: MapLine[];
@@ -54,6 +55,7 @@ export function PriceMap({
   onSelectSubstation: (id: string) => void;
   onSelectFeeder: (substationId: string, feederId: string) => void;
   onClearSelection: () => void;
+  ariaLabel?: string;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<Map | null>(null);
@@ -269,7 +271,7 @@ export function PriceMap({
       ref={container}
       className="map"
       role="img"
-      aria-label="Map of nearby streets coloured by local price divided by wholesale. Lines run out from each substation. They are not the mapped cables."
+      aria-label={ariaLabel}
     />
   );
 }

@@ -1,0 +1,17 @@
+{
+  "generatedAt": "2026-10-08T02:07:16.695Z",
+  "window": {
+    "start": "2025-10-01T00:00:00.000Z",
+    "end": "2026-10-01T00:00:00.000Z",
+    "days": 365
+  },
+  "coverageRule": {
+    "feederDay": 0.9,
+    "feederSearchDays": 0.9
+  },
+  "feederCountRequested": 187,
+  "eligibleFeederCount": 1,
+  "status": "insufficient-data",
+  "selectedDay": null,
+  "ranked": []
+}
