@@ -41,7 +41,7 @@ function lineStrings(geometry) {
 }
 
 async function mapPool(items, limit, task) {
-  const results = new Array(items.length);
+  const results = Array.from({ length: items.length });
   let cursor = 0;
   async function worker() {
     while (cursor < items.length) {

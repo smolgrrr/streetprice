@@ -59,7 +59,7 @@ async function withRetry<T>(label: string, task: () => Promise<T>): Promise<T> {
 }
 
 async function mapPool<T, R>(items: T[], limit: number, task: (item: T, index: number) => Promise<R>): Promise<R[]> {
-  const results = new Array<R>(items.length);
+  const results = Array.from({ length: items.length }) as R[];
   let cursor = 0;
   async function worker(): Promise<void> {
     while (cursor < items.length) {

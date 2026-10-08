@@ -8,7 +8,7 @@
     "prebuild": "node scripts/copy-map-worker.mjs",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
+    "lint": "oxlint --deny-warnings . && tsc --noEmit",
     "test": "vitest run",
     "discover": "tsx ingest/discover.ts",
     "streets": "node scripts/fetch-streets.mjs",
@@ -27,8 +27,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.3.8",
+    "oxlint": "^1.87.0",
     "tsx": "^4.23.15",
     "typescript": "^5",
     "vitest": "^4.1.11"
