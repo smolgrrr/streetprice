@@ -1,6 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { compareFeeders, qualityFor } from "../lib/comparison";
+import { dayBounds } from "../lib/constraint";
 import { ASSUMED_FUSE_AMPS } from "../lib/cohort";
 import { fetchMarketIndex, wholesaleAt } from "../lib/elexon";
 import { loadLocalEnv } from "../lib/env";
@@ -73,14 +74,26 @@ async function mapPool<T, R>(items: T[], limit: number, task: (item: T, index: n
 
 async function main(): Promise<void> {
   const cohortFile = path.join(process.cwd(), "cohort.json");
-  const cohort = await readJson<CohortFeeder[]>(cohortFile);
-  if (!cohort || cohort.length === 0) {
+  const discovered = await readJson<CohortFeeder[]>(cohortFile);
+  if (!discovered || discovered.length === 0) {
     throw new Error("cohort.json has no feeders. Run npm run discover.");
   }
 
-  const start = new Date(process.env.NERDA_WINDOW_START ?? DEFAULT_WINDOW_START);
+  const previous = await readJson<Snapshot>(path.join(process.cwd(), "data", "snapshot.json"));
+  const selectedIds = new Set(previous?.feeders.map((feeder) => feeder.id) ?? []);
+  const cohort = selectedIds.size
+    ? discovered.filter((feeder) => selectedIds.has(feeder.id))
+    : discovered;
+  const search = await readJson<{ selectedDay: string | null }>(path.join(process.cwd(), "data", "constraint-search-result.json"));
+
+  const selectedStart = search?.selectedDay
+    ? new Date(dayBounds(search.selectedDay).start).toISOString()
+    : DEFAULT_WINDOW_START;
+  const start = new Date(process.env.NERDA_WINDOW_START ?? selectedStart);
   if (Number.isNaN(start.getTime())) throw new Error("NERDA_WINDOW_START is not a valid timestamp");
-  const end = new Date(start.getTime() + 24 * HOUR);
+  const end = search?.selectedDay && !process.env.NERDA_WINDOW_START
+    ? new Date(dayBounds(search.selectedDay).end)
+    : new Date(start.getTime() + 24 * HOUR);
   const expectedBuckets = Math.round((end.getTime() - start.getTime()) / HALF_HOUR);
   const cacheFile = path.join(process.cwd(), "data", "ingest-cache.json");
   const cached = await readJson<{ windowStart: string; windowEnd: string; feeders: Record<string, Feeder> }>(cacheFile);
@@ -137,8 +150,7 @@ async function main(): Promise<void> {
         samples: priceWindow(
           points.map((point) => ({ t: point.t, pKw: point.value })),
           (t) => wholesaleAt(wholesale, t),
-          row.ratingKva,
-          cap,
+          row,
         ),
       });
     });
@@ -155,9 +167,9 @@ async function main(): Promise<void> {
     const feeder = cache.feeders[row.id];
     return feeder ? [feeder] : [];
   });
-  const feeders = fetched.filter((feeder) => feeder.quality.status !== "insufficient" && feeder.samples.length > 0);
-  const omitted = fetched.length - feeders.length;
-  console.log(`Kept ${feeders.length} of ${cohort.length} feeders. ${omitted} stayed under 50% coverage or had no complete bucket.`);
+  const feeders = fetched;
+  const incomplete = feeders.filter((feeder) => feeder.quality.status === "insufficient").length;
+  console.log(`Kept all ${feeders.length} feeders; ${incomplete} have insufficient coverage and remain visible as missing.`);
   const dataThrough = feeders
     .flatMap((feeder) => feeder.samples.map((sample) => sample.t))
     .sort()
@@ -194,7 +206,7 @@ async function main(): Promise<void> {
   };
   const snapshotFile = path.join(process.cwd(), "data", "snapshot.json");
   await mkdir(path.dirname(snapshotFile), { recursive: true });
-  await writeFile(snapshotFile, JSON.stringify(snapshot, null, 2));
+  await writeFile(snapshotFile, JSON.stringify(snapshot));
   console.log(`Wrote ${feeders.length} historical feeders to ${snapshotFile}.`);
 }
 

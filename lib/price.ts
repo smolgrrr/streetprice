@@ -89,7 +89,9 @@ export type PricedSample = {
   t: string;
   pKw: number;
   loading: number;
-  targetKw: number;
+  limitKw: number;
+  rampStartKw: number;
+  direction: "import" | "export" | "neutral" | "unknown";
   addon: number;
   local: number;
   wholesale: number;
@@ -98,21 +100,26 @@ export type PricedSample = {
 export function priceWindow(
   points: { t: string; pKw: number; loading?: number }[],
   wholesaleAt: (t: string) => number,
-  ratingKva: number,
-  cap: number,
+  asset: { ratingKva: number; ratingSource: RatingSource },
 ): PricedSample[] {
-  const targetKw = flatTargetKw(points.map((point) => point.pKw));
   return points.map((point) => {
-    const addon = addonGbpPerMwh(point.pKw, targetKw, ratingKva, cap);
+    const importLimitKw = importLimit(asset, defaultScenario);
+    const signal = constraintSignal(point.pKw, importLimitKw, defaultScenario);
+    const limitKw = point.pKw < 0 ? defaultScenario.exportKw ?? importLimitKw : importLimitKw;
+    const addon = (signal.price ?? 0) * 1000;
     const wholesale = wholesaleAt(point.t);
     return {
       t: point.t,
       pKw: point.pKw,
-      loading: point.loading ?? loadingRatio(point.pKw, ratingKva),
-      targetKw,
+      loading: point.loading ?? signal.loading ?? 0,
+      limitKw,
+      rampStartKw: limitKw * defaultScenario.rampStart,
+      direction: signal.direction,
       addon,
       local: localGbpPerMwh(wholesale, addon),
       wholesale,
     };
   });
 }
+import { constraintSignal, defaultScenario, importLimit } from "./constraint";
+import type { RatingSource } from "./types";

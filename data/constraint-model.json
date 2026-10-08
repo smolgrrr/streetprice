@@ -17,14 +17,19 @@
     "provenance": "scenario-assumption"
   },
   "exportLimit": {
-    "value": null,
-    "provenance": "unavailable"
+    "value": 100,
+    "unit": "kW",
+    "provenance": "scenario-assumption"
+  },
+  "defaultExportCost": {
+    "gbpPerKva": 40,
+    "provenance": "scenario-assumption"
   },
   "search": {
     "requestedMonths": 12,
-    "status": "Not completed: the NeRDA range endpoint down-samples long requests to hourly observations, so it cannot support the specified half-hour completeness test without a dedicated resumable scan.",
-    "selectedDay": null,
-    "coverage": null
+    "status": "Complete: cadence-aware ranking selected 2026-01-06.",
+    "selectedDay": "2026-01-06",
+    "coverage": 0.8128342245989305
   },
   "sources": [
     {

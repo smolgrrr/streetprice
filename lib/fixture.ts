@@ -60,8 +60,7 @@ export function buildFixture(): Snapshot {
         samples: priceWindow(
           clock.map((t) => ({ t, pKw: syntheticPower(hourUtc(t), feederOffset) })),
           fixtureWholesale,
-          ratingKva,
-          cap,
+          { ratingKva, ratingSource: "assumed-feeder-fuse" },
         ),
       };
     }),

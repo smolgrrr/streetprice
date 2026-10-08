@@ -3,7 +3,9 @@ import {
   constraintSignal,
   dayBounds,
   defaultScenario,
+  expectedDailySamples,
   ramp,
+  rankCadenceDays,
   rankDays,
   signalCap,
 } from "./constraint";
@@ -24,7 +26,7 @@ describe("constraint signal", () => {
     expect(imported.direction).toBe("import");
     expect(imported.price).toBeGreaterThan(0);
 
-    const unknownExport = constraintSignal(-80, 138.56, defaultScenario);
+    const unknownExport = constraintSignal(-80, 138.56, { ...defaultScenario, exportKw: null, exportCost: null });
     expect(unknownExport.direction).toBe("unknown");
     expect(unknownExport.price).toBeNull();
 
@@ -32,6 +34,27 @@ describe("constraint signal", () => {
     const exported = constraintSignal(-80, 138.56, withExport);
     expect(exported.direction).toBe("export");
     expect(exported.price).toBeLessThan(0);
+  });
+});
+
+describe("cadence-aware day ranking", () => {
+  it("infers each feeder cadence from its 90th-percentile daily count", () => {
+    expect(expectedDailySamples([23, 24, 24, 24, 12])).toBe(24);
+    expect(expectedDailySamples([46, 47, 48, 48, 20])).toBe(48);
+  });
+
+  it("requires 75% feeder coverage and ranks pressure before coverage", () => {
+    const days = ["2026-01-01", "2026-01-02"];
+    const feeders = Array.from({ length: 4 }, (_, index) => ({
+      id: `f${index}`,
+      days: {
+        "2026-01-01": { complete: 24, pressureSum: index < 3 ? 6 : 0, affected: index < 3 },
+        "2026-01-02": { complete: index < 3 ? 24 : 0, pressureSum: index < 3 ? 12 : 0, affected: index < 3 },
+      },
+    }));
+    const ranked = rankCadenceDays(feeders, days);
+    expect(ranked[0].day).toBe("2026-01-02");
+    expect(ranked[0].coverage).toBe(0.75);
   });
 });
 

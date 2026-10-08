@@ -51,7 +51,8 @@ export type Snapshot = {
     rampStart: number;
     defaultImportLimit: { amps: number; volts: number; phases: number; powerFactor: number; provenance: "scenario-assumption" };
     defaultImportCost: { gbpPerKva: number; lifeYears: number; discountRate: number; bindingHoursPerYear: number; provenance: "scenario-assumption" };
-    exportLimit: { value: null; provenance: "unavailable" };
+    exportLimit: { value: number; unit: "kW"; provenance: "scenario-assumption" };
+    defaultExportCost: { gbpPerKva: number; provenance: "scenario-assumption" };
     search: { requestedMonths: number; status: string; selectedDay: null | string; coverage: null | number };
     sources: Array<{ label: string; url: string; use: string }>;
   };

@@ -1,4 +1,3 @@
-import { capitalRecoveryFactor, ratingKvaFromAmps } from "./price";
 import type { Feeder } from "./types";
 
 /** Scenario inputs, not an operational tariff or measured asset limits. */
@@ -15,8 +14,16 @@ export type Scenario = {
 };
 export const defaultScenario: Scenario = {
   rampStart: .85, importAmps: 200, powerFactor: 1, importCost: 80,
-  exportKw: null, exportCost: null, lifeYears: 45, discountRate: .05, bindingHours: 15,
+  exportKw: 100, exportCost: 40, lifeYears: 45, discountRate: .05, bindingHours: 15,
 };
+function capitalRecoveryFactor(rate: number, years: number) {
+  if (rate === 0) return 1 / years;
+  const growth = (1 + rate) ** years;
+  return rate * growth / (growth - 1);
+}
+function ratingKvaFromAmps(amps: number) {
+  return Math.sqrt(3) * 0.4 * amps;
+}
 export function validateScenario(s: Scenario) {
   if (![s.rampStart,s.importAmps,s.powerFactor,s.importCost,s.lifeYears,s.discountRate,s.bindingHours].every(Number.isFinite)
     || s.rampStart < 0 || s.rampStart >= 1 || s.importAmps <= 0 || s.powerFactor <= 0 || s.powerFactor > 1
@@ -98,4 +105,49 @@ export function rankDays(feeders: Array<Pick<Feeder,"id"|"ratingKva"|"ratingSour
     return [{day,events,affected,exceedanceKwh}];
   }).sort((a,b)=>b.events-a.events || b.affected-a.affected || b.exceedanceKwh-a.exceedanceKwh || a.day.localeCompare(b.day));
   return {cohort:eligible.map(f=>f.id),ranked,winner:ranked[0]?.events ? ranked[0] : null};
+}
+
+export type CadenceDayStat = { complete: number; pressureSum: number; affected: boolean };
+export type CadenceSearchFeeder = { id: string; days: Record<string, CadenceDayStat> };
+
+export function expectedDailySamples(counts: number[]): number {
+  if (!counts.length) return 1;
+  const sorted = [...counts].sort((a, b) => a - b);
+  return Math.max(1, sorted[Math.floor((sorted.length - 1) * 0.9)]);
+}
+
+export function rankCadenceDays(feeders: CadenceSearchFeeder[], days: string[]) {
+  const expected = new Map(feeders.map((feeder) => [
+    feeder.id,
+    expectedDailySamples(days.map((day) => feeder.days[day]?.complete ?? 0)),
+  ]));
+  const expectedFor = (feederId: string, day: string) =>
+    Math.max(1, Math.round((expected.get(feederId) ?? 1) * dayBounds(day).buckets / 48));
+  return days.flatMap((day) => {
+    const covered = feeders.filter((feeder) =>
+      (feeder.days[day]?.complete ?? 0) / expectedFor(feeder.id, day) >= 0.9,
+    );
+    const coverage = covered.length / Math.max(1, feeders.length);
+    if (coverage < 0.75) return [];
+    const hours = dayBounds(day).buckets / 2;
+    let pressureHours = 0;
+    let affected = 0;
+    for (const feeder of covered) {
+      const stat = feeder.days[day];
+      pressureHours += stat.pressureSum * hours / expectedFor(feeder.id, day);
+      if (stat.affected) affected++;
+    }
+    return [{
+      day,
+      averagePressureHours: pressureHours / covered.length,
+      affectedShare: affected / covered.length,
+      coveredFeeders: covered.length,
+      coverage,
+    }];
+  }).sort((a, b) =>
+    b.averagePressureHours - a.averagePressureHours ||
+    b.affectedShare - a.affectedShare ||
+    b.coverage - a.coverage ||
+    a.day.localeCompare(b.day),
+  );
 }

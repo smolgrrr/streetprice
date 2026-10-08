@@ -1,13 +1,13 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { dayBounds, defaultScenario, importLimit, londonDate } from "../lib/constraint";
+import { constraintSignal, defaultScenario, importLimit, londonDate, rankCadenceDays } from "../lib/constraint";
 import { loadLocalEnv } from "../lib/env";
 import { fetchBetween, mergeAnalogSeries, threePhasePowerKw } from "../lib/nerda";
 import type { CohortFeeder, Feeder, Snapshot } from "../lib/types";
 
 loadLocalEnv();
 
-type DayStat = { complete: number; events: number; exceedanceKwh: number };
+type DayStat = { complete: number; pressureSum: number; affected: boolean };
 type Cached = { start: string; end: string; feeders: Record<string, Record<string, DayStat>> };
 
 async function json<T>(file: string): Promise<T> {
@@ -39,7 +39,7 @@ async function main() {
   const end = new Date(process.env.SEARCH_END ?? "2026-10-01T00:00:00.000Z");
   const start = new Date(process.env.SEARCH_START ?? "2025-10-01T00:00:00.000Z");
   const days = londonDays(start, end);
-  const file = path.join(process.cwd(), "data", "constraint-search-cache.json");
+  const file = path.join(process.cwd(), "data", "constraint-search-cache-v2.json");
   let cache: Cached;
   try {
     cache = await json<Cached>(file);
@@ -69,12 +69,12 @@ async function main() {
     for (const point of points) {
       if (point.t < start.toISOString() || point.t >= end.toISOString()) continue;
       const day = londonDate(point.t);
-      const stat = stats[day] ?? { complete: 0, events: 0, exceedanceKwh: 0 };
+      const stat = stats[day] ?? { complete: 0, pressureSum: 0, affected: false };
       stat.complete++;
-      if (point.value > limit) {
-        stat.events++;
-        stat.exceedanceKwh += (point.value - limit) * 0.5;
-      }
+      const signal = constraintSignal(point.value, limit, defaultScenario);
+      const pressure = signal.loading === null ? 0 : Math.max(0, Math.min(1, (signal.loading - defaultScenario.rampStart) / (1 - defaultScenario.rampStart)));
+      stat.pressureSum += pressure;
+      if (pressure > 0) stat.affected = true;
       stats[day] = stat;
     }
     cache.feeders[feeder.id] = stats;
@@ -84,32 +84,20 @@ async function main() {
   });
   await writes;
 
-  const eligible = feeders.filter((feeder) =>
-    days.filter((day) => (cache.feeders[feeder.id]?.[day]?.complete ?? 0) / dayBounds(day).buckets >= 0.9).length / days.length >= 0.9,
+  const ranked = rankCadenceDays(
+    feeders.map((feeder) => ({ id: feeder.id, days: cache.feeders[feeder.id] })),
+    days,
   );
-  const ranked = days.flatMap((day) => {
-    const complete = eligible.every((feeder) => (cache.feeders[feeder.id]?.[day]?.complete ?? 0) / dayBounds(day).buckets >= 0.9);
-    if (!complete || !eligible.length) return [];
-    let events = 0;
-    let affected = 0;
-    let exceedanceKwh = 0;
-    for (const feeder of eligible) {
-      const stat = cache.feeders[feeder.id][day];
-      events += stat.events;
-      exceedanceKwh += stat.exceedanceKwh;
-      if (stat.events) affected++;
-    }
-    return [{ day, events, affected, exceedanceKwh }];
-  }).sort((a, b) => b.events - a.events || b.affected - a.affected || b.exceedanceKwh - a.exceedanceKwh || a.day.localeCompare(b.day));
+  const winner = ranked[0] ?? null;
   const result = {
     generatedAt: new Date().toISOString(),
     window: { start: start.toISOString(), end: end.toISOString(), days: days.length },
-    coverageRule: { feederDay: 0.9, feederSearchDays: 0.9 },
+    coverageRule: { feederDay: 0.9, networkDay: 0.75, cadence: "per-feeder 90th-percentile daily sample count" },
     feederCountRequested: feeders.length,
-    eligibleFeederCount: eligible.length,
-    status: eligible.length / feeders.length >= 0.9 ? "complete" : "insufficient-data",
-    selectedDay: ranked[0]?.events ? ranked[0].day : null,
-    ranked: ranked.filter((day) => day.events > 0).slice(0, 20),
+    status: winner ? "complete" : "insufficient-data",
+    selectedDay: winner?.day ?? null,
+    selectedDayCoverage: winner?.coverage ?? null,
+    ranked: ranked.slice(0, 20),
   };
   await writeFile(path.join(process.cwd(), "data", "constraint-search-result.json"), `${JSON.stringify(result, null, 2)}\n`);
   console.log(JSON.stringify(result, null, 2));

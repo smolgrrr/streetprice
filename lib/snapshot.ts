@@ -20,13 +20,15 @@ export async function loadSnapshot(): Promise<Snapshot> {
     ) {
       try {
         parsed.constraintModel = JSON.parse(await readFile(modelFile, "utf8")) as Snapshot["constraintModel"];
-        const search = JSON.parse(await readFile(searchFile, "utf8")) as { status: string; selectedDay: string | null; eligibleFeederCount: number; feederCountRequested: number };
+        const search = JSON.parse(await readFile(searchFile, "utf8")) as { status: string; selectedDay: string | null; selectedDayCoverage?: number | null; feederCountRequested: number };
         if (parsed.constraintModel) {
           parsed.constraintModel.search = {
             requestedMonths: 12,
-            status: `${search.status}: ${search.eligibleFeederCount}/${search.feederCountRequested} feeders met the coverage rule`,
+            status: search.selectedDay
+              ? `${search.status}: ${search.selectedDay} selected with ${Math.round((search.selectedDayCoverage ?? 0) * 100)}% feeder coverage`
+              : `${search.status}: no day met the coverage rule`,
             selectedDay: search.selectedDay,
-            coverage: search.feederCountRequested ? search.eligibleFeederCount / search.feederCountRequested : null,
+            coverage: search.selectedDayCoverage ?? null,
           };
         }
       } catch {

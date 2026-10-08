@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-08T02:07:16.695Z",
+  "generatedAt": "2026-10-08T02:38:48.808Z",
   "window": {
     "start": "2025-10-01T00:00:00.000Z",
     "end": "2026-10-01T00:00:00.000Z",
@@ -7,11 +7,153 @@
   },
   "coverageRule": {
     "feederDay": 0.9,
-    "feederSearchDays": 0.9
+    "networkDay": 0.75,
+    "cadence": "per-feeder 90th-percentile daily sample count"
   },
   "feederCountRequested": 187,
-  "eligibleFeederCount": 1,
-  "status": "insufficient-data",
-  "selectedDay": null,
-  "ranked": []
+  "status": "complete",
+  "selectedDay": "2026-01-06",
+  "selectedDayCoverage": 0.8128342245989305,
+  "ranked": [
+    {
+      "day": "2026-01-06",
+      "averagePressureHours": 1.2747996613419545,
+      "affectedShare": 0.1513157894736842,
+      "coveredFeeders": 152,
+      "coverage": 0.8128342245989305
+    },
+    {
+      "day": "2025-11-26",
+      "averagePressureHours": 1.136810416312097,
+      "affectedShare": 0.15862068965517243,
+      "coveredFeeders": 145,
+      "coverage": 0.7754010695187166
+    },
+    {
+      "day": "2026-01-08",
+      "averagePressureHours": 1.0854413078484095,
+      "affectedShare": 0.12666666666666668,
+      "coveredFeeders": 150,
+      "coverage": 0.8021390374331551
+    },
+    {
+      "day": "2026-01-05",
+      "averagePressureHours": 1.0853849955166028,
+      "affectedShare": 0.14084507042253522,
+      "coveredFeeders": 142,
+      "coverage": 0.7593582887700535
+    },
+    {
+      "day": "2026-01-09",
+      "averagePressureHours": 1.0737447328165892,
+      "affectedShare": 0.14482758620689656,
+      "coveredFeeders": 145,
+      "coverage": 0.7754010695187166
+    },
+    {
+      "day": "2026-01-14",
+      "averagePressureHours": 1.0475271067946244,
+      "affectedShare": 0.14482758620689656,
+      "coveredFeeders": 145,
+      "coverage": 0.7754010695187166
+    },
+    {
+      "day": "2026-01-29",
+      "averagePressureHours": 1.0393307845885522,
+      "affectedShare": 0.136986301369863,
+      "coveredFeeders": 146,
+      "coverage": 0.7807486631016043
+    },
+    {
+      "day": "2026-02-19",
+      "averagePressureHours": 0.9717468922838847,
+      "affectedShare": 0.12258064516129032,
+      "coveredFeeders": 155,
+      "coverage": 0.8288770053475936
+    },
+    {
+      "day": "2026-01-10",
+      "averagePressureHours": 0.9591247441203756,
+      "affectedShare": 0.1276595744680851,
+      "coveredFeeders": 141,
+      "coverage": 0.7540106951871658
+    },
+    {
+      "day": "2025-11-25",
+      "averagePressureHours": 0.9573540300942386,
+      "affectedShare": 0.1292517006802721,
+      "coveredFeeders": 147,
+      "coverage": 0.786096256684492
+    },
+    {
+      "day": "2026-01-16",
+      "averagePressureHours": 0.9474580899537887,
+      "affectedShare": 0.13986013986013987,
+      "coveredFeeders": 143,
+      "coverage": 0.7647058823529411
+    },
+    {
+      "day": "2026-01-07",
+      "averagePressureHours": 0.9367377881399971,
+      "affectedShare": 0.14189189189189189,
+      "coveredFeeders": 148,
+      "coverage": 0.7914438502673797
+    },
+    {
+      "day": "2026-02-05",
+      "averagePressureHours": 0.9230510169638189,
+      "affectedShare": 0.13793103448275862,
+      "coveredFeeders": 145,
+      "coverage": 0.7754010695187166
+    },
+    {
+      "day": "2025-12-05",
+      "averagePressureHours": 0.9005793963929531,
+      "affectedShare": 0.12418300653594772,
+      "coveredFeeders": 153,
+      "coverage": 0.8181818181818182
+    },
+    {
+      "day": "2026-01-15",
+      "averagePressureHours": 0.8925911918012892,
+      "affectedShare": 0.12244897959183673,
+      "coveredFeeders": 147,
+      "coverage": 0.786096256684492
+    },
+    {
+      "day": "2026-02-20",
+      "averagePressureHours": 0.889881243419253,
+      "affectedShare": 0.13986013986013987,
+      "coveredFeeders": 143,
+      "coverage": 0.7647058823529411
+    },
+    {
+      "day": "2026-01-30",
+      "averagePressureHours": 0.8702606501910001,
+      "affectedShare": 0.14093959731543623,
+      "coveredFeeders": 149,
+      "coverage": 0.7967914438502673
+    },
+    {
+      "day": "2026-02-13",
+      "averagePressureHours": 0.8689976219804358,
+      "affectedShare": 0.14184397163120568,
+      "coveredFeeders": 141,
+      "coverage": 0.7540106951871658
+    },
+    {
+      "day": "2026-02-14",
+      "averagePressureHours": 0.8650276526386815,
+      "affectedShare": 0.12056737588652482,
+      "coveredFeeders": 141,
+      "coverage": 0.7540106951871658
+    },
+    {
+      "day": "2026-01-26",
+      "averagePressureHours": 0.8198612817789849,
+      "affectedShare": 0.14473684210526316,
+      "coveredFeeders": 152,
+      "coverage": 0.8128342245989305
+    }
+  ]
 }

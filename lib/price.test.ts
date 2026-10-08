@@ -63,21 +63,24 @@ describe("window", () => {
     expect(flatTargetKw([100, -100])).toBe(0);
   });
 
-  it("prices every sample against one flat target", () => {
+  it("prices import and export against separate ramped limits", () => {
     const samples = priceWindow(
       [
         { t: "2026-10-04T00:00:00.000Z", pKw: 0 },
-        { t: "2026-10-04T12:00:00.000Z", pKw: 100 },
+        { t: "2026-10-04T12:00:00.000Z", pKw: 140 },
+        { t: "2026-10-04T13:00:00.000Z", pKw: -100 },
       ],
       () => 50,
-      100,
-      300,
+      { ratingKva: ratingKvaFromAmps(200), ratingSource: "assumed-feeder-fuse" },
     );
-    expect(samples[0].targetKw).toBe(50);
-    expect(samples[1].targetKw).toBe(50);
+    expect(samples[0].addon).toBe(0);
+    expect(samples[1].direction).toBe("import");
+    expect(samples[1].limitKw).toBeCloseTo(ratingKvaFromAmps(200));
     expect(samples[1].local).toBe(50 + samples[1].addon);
     expect(samples[1].addon).toBeGreaterThan(0);
-    expect(samples[0].addon).toBeLessThan(0);
+    expect(samples[2].direction).toBe("export");
+    expect(samples[2].limitKw).toBe(100);
+    expect(samples[2].addon).toBeLessThan(0);
   });
 });
 
