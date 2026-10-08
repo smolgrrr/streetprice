@@ -292,7 +292,7 @@ export function Dashboard() {
             </div>
           </div>
           <figcaption className="figure-caption">
-            <strong>Figure 1.</strong> Modelled local price relative to wholesale across Oxford LV feeders at the selected half-hour. Grey denotes no complete reading; street traces are indicative and are not SSEN cable routes.
+            <strong>Figure 1.</strong> Modelled local price relative to wholesale across Oxford LV feeders at the selected half-hour. Grey denotes no complete reading<span className="map-caption-detail">; street traces are indicative and are not SSEN cable routes</span><span className="map-caption-mobile">; traces are illustrative</span>.
           </figcaption>
         </figure>
 

@@ -390,6 +390,8 @@ a { color: inherit; }
   text-transform: uppercase;
 }
 
+.map-caption-mobile { display: none; }
+
 .time-control { margin-top: 1rem; }
 .map-follow .time-control { margin-top: 0; }
 .time-control > div { display: flex; align-items: baseline; gap: 0.75rem; margin-bottom: 0.4rem; }
@@ -569,8 +571,26 @@ th { color: var(--muted); font-weight: 500; }
 
 @media (max-width: 680px) {
   .intro h1 { font-size: 2.15rem; }
-  .map-card { min-height: 42dvh; border-radius: 3px; }
-  .map-legend { left: 0.7rem; right: 4.2rem; bottom: 4.6rem; max-width: none; }
+  .hero { row-gap: 0.85rem; }
+  .map-card { min-height: clamp(24rem, 58svh, 32rem); border-radius: 3px; }
+  .map-legend {
+    top: 0.7rem;
+    right: auto;
+    bottom: auto;
+    left: 0.7rem;
+    max-width: calc(100% - 1.4rem);
+    flex-wrap: nowrap;
+    gap: 0.4rem;
+    padding: 0.35rem 0.5rem;
+    font-size: 0.72rem;
+    white-space: nowrap;
+  }
+  .ratio-scale { width: clamp(3.8rem, 18vw, 5rem); height: 0.38rem; }
+  .map-legend .scale-caption { display: none; }
+  .map-column .figure-caption { margin-top: 0.45rem; font-size: 0.76rem; line-height: 1.4; }
+  .map-caption-detail { display: none; }
+  .map-caption-mobile { display: inline; }
+  .comparison-panel { margin-top: 0.5rem; }
   .section-heading { display: block; }
   .section-heading .chart-key, .section-note { margin-top: 0.7rem; }
   .hero-metrics { grid-template-columns: 1fr 1fr; }
