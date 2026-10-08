@@ -273,7 +273,7 @@ export function Dashboard() {
       </section>
 
       <section className="hero section" aria-labelledby="pilot-result">
-        <div className="map-column">
+        <figure className="map-column">
           <div className="map-card">
             <PriceMap
               points={points}
@@ -291,7 +291,10 @@ export function Dashboard() {
               <span className="scale-caption">Local ÷ wholesale</span>
             </div>
           </div>
-        </div>
+          <figcaption className="figure-caption">
+            <strong>Figure 1.</strong> Modelled local price relative to wholesale across Oxford LV feeders at the selected half-hour. Grey denotes no complete reading; street traces are indicative and are not SSEN cable routes.
+          </figcaption>
+        </figure>
 
         <section className="comparison-panel" aria-labelledby="comparison-title">
           <div className="section-heading">
@@ -305,18 +308,23 @@ export function Dashboard() {
               <span><i className="key-line wholesale" />Wholesale</span>
             </div>
           </div>
-          <div className="chart-card">
-            <SeriesChart
-              cursor={index}
-              ariaLabel={`${feeder ? "Modelled" : "Average"} local and wholesale price for ${scopeLabel} over 24 hours`}
-              yAxis={{ label: "Price (£/kWh)", format: "price" }}
-              series={[
-                { values: localSeries.map((value) => (value === null ? null : value / 1000)), color: "#171a20", width: 2.5 },
-                { values: wholesaleSeries.map((value) => (value === null ? null : value / 1000)), color: "#8e8e8e", width: 2, dash: "7 6" },
-              ]}
-            />
-            <div className="chart-axis" aria-hidden="true"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span></div>
-          </div>
+          <figure>
+            <div className="chart-card">
+              <SeriesChart
+                cursor={index}
+                ariaLabel={`${feeder ? "Modelled" : "Average"} local and wholesale price for ${scopeLabel} over 24 hours`}
+                yAxis={{ label: "Price (£/kWh)", format: "price" }}
+                series={[
+                  { values: localSeries.map((value) => (value === null ? null : value / 1000)), color: "var(--ink)", width: 2.5 },
+                  { values: wholesaleSeries.map((value) => (value === null ? null : value / 1000)), color: "var(--reference)", width: 2, dash: "7 6" },
+                ]}
+              />
+              <div className="chart-axis" aria-hidden="true"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span></div>
+            </div>
+            <figcaption className="figure-caption">
+              <strong>Figure 2.</strong> Half-hourly modelled local and wholesale electricity prices for {scopeLabel} over the observed 24-hour period.
+            </figcaption>
+          </figure>
         </section>
 
         <dl className="hero-metrics">
@@ -378,7 +386,7 @@ export function Dashboard() {
       {substation ? <section className="section feeder-section" aria-labelledby="feeder-title">
         <div className="section-heading">
           <div>
-            <p className="eyebrow">Look under the bonnet</p>
+            <p className="eyebrow">Feeder-level analysis</p>
             <h2 id="feeder-title">Feeder detail</h2>
           </div>
           <p className="section-note">Select a feeder to see what drives its modelled price.</p>
@@ -430,20 +438,23 @@ export function Dashboard() {
               )}
             </div>
 
-            <div className="power-chart">
+            <figure className="power-chart">
               <div className="chart-title-row">
                 <h4>Signed feeder power</h4>
-                <div className="chart-key"><span><i className="key-line power" />Observed</span><span><i className="key-line target" />Ramp threshold</span></div>
+                <div className="chart-key"><span><i className="key-line" style={{ background: stateColor }} />Observed</span><span><i className="key-line target" />Ramp threshold</span></div>
               </div>
               <SeriesChart
                 cursor={index}
                 ariaLabel={`Signed feeder power and constraint ramp threshold for ${substation.name} ${feeder.name}`}
                 series={[
                   { values: selectedClockSamples.map((item) => item?.pKw ?? null), color: stateColor, width: 2.5 },
-                  { values: selectedClockSamples.map((item) => item ? (item.pKw < 0 ? -item.rampStartKw : item.rampStartKw) : null), color: "#8e8e8e", width: 2, dash: "7 6" },
+                  { values: selectedClockSamples.map((item) => item ? (item.pKw < 0 ? -item.rampStartKw : item.rampStartKw) : null), color: "var(--reference)", width: 2, dash: "7 6" },
                 ]}
               />
-            </div>
+              <figcaption className="figure-caption">
+                <strong>Figure 3.</strong> Observed signed feeder power against the modelled constraint ramp threshold. Negative values denote export.
+              </figcaption>
+            </figure>
           </article> : (
             <article className="feeder-detail selection-empty">
               <p>Select an LV feeder to see its half-hourly power, loading, and local price detail.</p>
@@ -454,7 +465,7 @@ export function Dashboard() {
 
       <section className="section disclosures" aria-label="Method and assumptions">
         <details>
-          <summary>How to read this</summary>
+          <summary>Interpretation</summary>
           <p>
             Positive local add-ons rise as import approaches the feeder’s applicable limit.
             Negative add-ons rise in magnitude as reverse flow approaches its separate assumed export limit.
@@ -466,7 +477,7 @@ export function Dashboard() {
           </p>
         </details>
         <details>
-          <summary>Model assumptions</summary>
+          <summary>Model specification</summary>
           <p>
             Where no published limit is available, a feeder uses an explicit {snapshot.ratingAssumptionAmps} A,
             400 V three-phase import assumption. The import add-on ramps from 85% of the limit and reaches {formatKwhPrice(cap)}/kWh
@@ -476,7 +487,7 @@ export function Dashboard() {
           </p>
         </details>
         <details>
-          <summary>Data quality and method</summary>
+          <summary>Data quality and limitations</summary>
           <p>
             NeRDA readings are averaged into 30-minute buckets for each phase, then all three phases are
             summed. A bucket is omitted if any phase is missing; gaps are not interpolated. This map

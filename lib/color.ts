@@ -1,6 +1,6 @@
-const CHARGE = [62, 106, 225];
-const INK = [154, 163, 171];
-const DISCHARGE = [225, 6, 0];
+const CHARGE = [49, 95, 125];
+const NEUTRAL = [151, 157, 153];
+const DISCHARGE = [154, 73, 62];
 
 function mix(from: number[], to: number[], t: number): string {
   const clamped = Math.max(0, Math.min(1, t));
@@ -11,18 +11,18 @@ function mix(from: number[], to: number[], t: number): string {
 
 /** Blue when a battery is paid to charge, red when it is paid to discharge. */
 export function addonColor(addon: number, cap: number): string {
-  if (!(cap > 0)) return mix(INK, INK, 0);
+  if (!(cap > 0)) return mix(NEUTRAL, NEUTRAL, 0);
   const x = Math.max(-1, Math.min(1, addon / cap));
-  if (x < 0) return mix(CHARGE, INK, 1 + x);
-  return mix(INK, DISCHARGE, x);
+  if (x < 0) return mix(CHARGE, NEUTRAL, 1 + x);
+  return mix(NEUTRAL, DISCHARGE, x);
 }
 
 const RATIO_STOPS = [
-  { at: 0, rgb: [37, 78, 196] },
-  { at: 0.5, rgb: [62, 106, 225] },
-  { at: 1, rgb: [214, 214, 210] },
-  { at: 1.5, rgb: [232, 96, 28] },
-  { at: 2, rgb: [225, 6, 0] },
+  { at: 0, rgb: [38, 79, 112] },
+  { at: 0.5, rgb: [79, 120, 147] },
+  { at: 1, rgb: [208, 206, 198] },
+  { at: 1.5, rgb: [184, 107, 80] },
+  { at: 2, rgb: [141, 64, 56] },
 ];
 
 /** Heat colour for local price ÷ wholesale. Neutral grey at 1, blue below, red above. */

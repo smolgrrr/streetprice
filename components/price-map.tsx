@@ -129,7 +129,7 @@ export function PriceMap({
         type: "line",
         source: "stubs",
         layout: { "line-cap": "round", "line-join": "round" },
-        paint: { "line-color": "#171a20", "line-width": 2, "line-opacity": 0.85 },
+        paint: { "line-color": "#1e2a35", "line-width": 2, "line-opacity": 0.85 },
       });
       map.addLayer({
         id: "substations",
@@ -147,7 +147,7 @@ export function PriceMap({
           ],
           "circle-color": ["get", "color"],
           "circle-stroke-width": ["case", ["==", ["get", "selected"], 1], 3, 1.5],
-          "circle-stroke-color": "#ffffff",
+          "circle-stroke-color": "#f7f5ef",
         },
       });
       map.on("click", (event) => {

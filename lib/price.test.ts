@@ -103,18 +103,18 @@ describe("battery", () => {
 });
 
 describe("colour", () => {
-  it("is teal at a full charge add-on and cadmium at a full discharge add-on", () => {
-    expect(addonColor(-300, 300)).toBe("rgb(62 106 225)");
-    expect(addonColor(300, 300)).toBe("rgb(225 6 0)");
-    expect(addonColor(0, 300)).toBe("rgb(154 163 171)");
+  it("uses the charge, neutral, and discharge colours across the add-on range", () => {
+    expect(addonColor(-300, 300)).toBe("rgb(49 95 125)");
+    expect(addonColor(300, 300)).toBe("rgb(154 73 62)");
+    expect(addonColor(0, 300)).toBe("rgb(151 157 153)");
   });
 
   it("colours local ÷ wholesale from blue through grey to red", () => {
-    expect(ratioColor(0.5)).toBe("rgb(62 106 225)");
-    expect(ratioColor(1)).toBe("rgb(214 214 210)");
-    expect(ratioColor(2)).toBe("rgb(225 6 0)");
-    expect(ratioColor(-1)).toBe("rgb(37 78 196)");
-    expect(ratioColor(4)).toBe("rgb(225 6 0)");
+    expect(ratioColor(0.5)).toBe("rgb(79 120 147)");
+    expect(ratioColor(1)).toBe("rgb(208 206 198)");
+    expect(ratioColor(2)).toBe("rgb(141 64 56)");
+    expect(ratioColor(-1)).toBe("rgb(38 79 112)");
+    expect(ratioColor(4)).toBe("rgb(141 64 56)");
   });
 });
 
