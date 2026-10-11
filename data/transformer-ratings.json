@@ -1,0 +1,1457 @@
+{
+  "workbook": "SEPD_RatingLoadingTool_20260521.xlsx",
+  "loadModel": "20261008_load_model_0_to_2_zip.zip",
+  "retrievedOn": "2026-10-09",
+  "sites": [
+    {
+      "nrn": "4607004010",
+      "name": "510 Cowley Rd",
+      "ratingKva": 315,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "460700401003"
+      ],
+      "workbookRatingsKva": [
+        315
+      ],
+      "loadModelRatingKva": 315
+    },
+    {
+      "nrn": "4618005300",
+      "name": "76 Church Rd",
+      "ratingKva": 315,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "461800530001",
+        "461800530002"
+      ],
+      "workbookRatingsKva": [
+        315
+      ],
+      "loadModelRatingKva": 315
+    },
+    {
+      "nrn": "4626002080",
+      "name": "Ashmoleon Museum",
+      "ratingKva": 1500,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "462600208001",
+        "462600208003",
+        "462600208005",
+        "462600208006",
+        "462600208007",
+        "462600208008"
+      ],
+      "workbookRatingsKva": [
+        1500
+      ],
+      "loadModelRatingKva": 1500
+    },
+    {
+      "nrn": "4618007060",
+      "name": "Barns Rd Car Park",
+      "ratingKva": null,
+      "status": "conflicting",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "461800706001",
+        "461800706002",
+        "461800706003",
+        "461800706004"
+      ],
+      "workbookRatingsKva": [
+        500,
+        800
+      ],
+      "loadModelRatingKva": 500
+    },
+    {
+      "nrn": "4919003200",
+      "name": "Botley Pinnocks Way",
+      "ratingKva": 500,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "491900320001",
+        "491900320002",
+        "491900320004",
+        "491900320005"
+      ],
+      "workbookRatingsKva": [
+        500
+      ],
+      "loadModelRatingKva": 500
+    },
+    {
+      "nrn": "4907008020",
+      "name": "Bridewell Square",
+      "ratingKva": 800,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "490700802001",
+        "490700802002"
+      ],
+      "workbookRatingsKva": [
+        800
+      ],
+      "loadModelRatingKva": 800
+    },
+    {
+      "nrn": "4600007020",
+      "name": "Bridge View Watlington Road",
+      "ratingKva": 800,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "460000702001",
+        "460000702002",
+        "460000702003",
+        "460000702004",
+        "460000702005"
+      ],
+      "workbookRatingsKva": [
+        800
+      ],
+      "loadModelRatingKva": 800
+    },
+    {
+      "nrn": "4602003005",
+      "name": "Calves Close",
+      "ratingKva": 500,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "460200300501",
+        "460200300502",
+        "460200300503",
+        "460200300504"
+      ],
+      "workbookRatingsKva": [
+        500
+      ],
+      "loadModelRatingKva": 500
+    },
+    {
+      "nrn": "4618001220",
+      "name": "Campbell Road",
+      "ratingKva": 750,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "461800122001",
+        "461800122002",
+        "461800122003",
+        "461800122005"
+      ],
+      "workbookRatingsKva": [
+        750
+      ],
+      "loadModelRatingKva": 750
+    },
+    {
+      "nrn": "4907001090",
+      "name": "Catte Street",
+      "ratingKva": 800,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "490700109001",
+        "490700109002",
+        "490700109003",
+        "490700109004"
+      ],
+      "workbookRatingsKva": [
+        800
+      ],
+      "loadModelRatingKva": 800
+    },
+    {
+      "nrn": "4914001040",
+      "name": "Cherwell School",
+      "ratingKva": 300,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "491400104002",
+        "491400104003",
+        "491400104006"
+      ],
+      "workbookRatingsKva": [
+        300
+      ],
+      "loadModelRatingKva": 300
+    },
+    {
+      "nrn": "4907004060",
+      "name": "Christchurch",
+      "ratingKva": 1000,
+      "status": "published",
+      "sources": "load-model",
+      "connectedCircuits": [
+        "490700406001",
+        "490700406002",
+        "490700406004"
+      ],
+      "workbookRatingsKva": [],
+      "loadModelRatingKva": 1000
+    },
+    {
+      "nrn": "4618005280",
+      "name": "Church Road Fieldside",
+      "ratingKva": 800,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "461800528002",
+        "461800528003",
+        "461800528004"
+      ],
+      "workbookRatingsKva": [
+        800
+      ],
+      "loadModelRatingKva": 800
+    },
+    {
+      "nrn": "4618003100",
+      "name": "Church Way Iffley",
+      "ratingKva": 500,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "461800310001",
+        "461800310002",
+        "461800310003",
+        "461800310004",
+        "461800310005"
+      ],
+      "workbookRatingsKva": [
+        500
+      ],
+      "loadModelRatingKva": 500
+    },
+    {
+      "nrn": "4622001100",
+      "name": "Cinnaminta Road",
+      "ratingKva": 500,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "462200110001",
+        "462200110002",
+        "462200110003",
+        "462200110004"
+      ],
+      "workbookRatingsKva": [
+        500
+      ],
+      "loadModelRatingKva": 500
+    },
+    {
+      "nrn": "4603004040",
+      "name": "Copse Lane",
+      "ratingKva": 500,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "460300404001",
+        "460300404003",
+        "460300404004",
+        "460300404005",
+        "460300404006",
+        "460300404007"
+      ],
+      "workbookRatingsKva": [
+        500
+      ],
+      "loadModelRatingKva": 500
+    },
+    {
+      "nrn": "4622001220",
+      "name": "Corner House Hollow Way",
+      "ratingKva": 300,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "462200122001",
+        "462200122002",
+        "462200122004",
+        "462200122005"
+      ],
+      "workbookRatingsKva": [
+        300
+      ],
+      "loadModelRatingKva": 300
+    },
+    {
+      "nrn": "4618003120",
+      "name": "Cornwallis Road",
+      "ratingKva": 750,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "461800312001",
+        "461800312002",
+        "461800312003",
+        "461800312004",
+        "461800312005"
+      ],
+      "workbookRatingsKva": [
+        750
+      ],
+      "loadModelRatingKva": 750
+    },
+    {
+      "nrn": "4618008040",
+      "name": "Danvers Road",
+      "ratingKva": 500,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "461800804001",
+        "461800804002",
+        "461800804003",
+        "461800804006"
+      ],
+      "workbookRatingsKva": [
+        500
+      ],
+      "loadModelRatingKva": 500
+    },
+    {
+      "nrn": "4622004070",
+      "name": "Downside Road",
+      "ratingKva": 500,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "462200407001",
+        "462200407002",
+        "462200407003",
+        "462200407004",
+        "462200407005"
+      ],
+      "workbookRatingsKva": [
+        500
+      ],
+      "loadModelRatingKva": 500
+    },
+    {
+      "nrn": "4607016050",
+      "name": "Edgeway Road",
+      "ratingKva": null,
+      "status": "conflicting",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "460701605001",
+        "460701605002",
+        "460701605003",
+        "460701605004",
+        "460701605007",
+        "460701605008",
+        "460701605009"
+      ],
+      "workbookRatingsKva": [
+        500
+      ],
+      "loadModelRatingKva": 1000
+    },
+    {
+      "nrn": "4600002120",
+      "name": "Edmund Road",
+      "ratingKva": 500,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "460000212001",
+        "460000212002",
+        "460000212003",
+        "460000212004"
+      ],
+      "workbookRatingsKva": [
+        500
+      ],
+      "loadModelRatingKva": 500
+    },
+    {
+      "nrn": "4618002020",
+      "name": "Fiennes Road",
+      "ratingKva": 750,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "461800202001",
+        "461800202002",
+        "461800202003",
+        "461800202004",
+        "461800202005"
+      ],
+      "workbookRatingsKva": [
+        750
+      ],
+      "loadModelRatingKva": 750
+    },
+    {
+      "nrn": "4617001040",
+      "name": "Five Mile Drive",
+      "ratingKva": 750,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "461700104001",
+        "461700104002",
+        "461700104003",
+        "461700104004",
+        "461700104005"
+      ],
+      "workbookRatingsKva": [
+        750
+      ],
+      "loadModelRatingKva": 750
+    },
+    {
+      "nrn": "4600006400",
+      "name": "Garsington Village Hall",
+      "ratingKva": 315,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "460000640001",
+        "460000640003"
+      ],
+      "workbookRatingsKva": [
+        315
+      ],
+      "loadModelRatingKva": 315
+    },
+    {
+      "nrn": "4618003160",
+      "name": "George More Close",
+      "ratingKva": 315,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "461800316001",
+        "461800316002"
+      ],
+      "workbookRatingsKva": [
+        315
+      ],
+      "loadModelRatingKva": 315
+    },
+    {
+      "nrn": "4626001300",
+      "name": "Gloucester Green",
+      "ratingKva": 1000,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "462600130001",
+        "462600130003",
+        "462600130004",
+        "462600130005"
+      ],
+      "workbookRatingsKva": [
+        1000
+      ],
+      "loadModelRatingKva": 1000
+    },
+    {
+      "nrn": "4907007020",
+      "name": "Grand Pont Place",
+      "ratingKva": 500,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "490700702001",
+        "490700702002",
+        "490700702003",
+        "490700702004",
+        "490700702005"
+      ],
+      "workbookRatingsKva": [
+        500
+      ],
+      "loadModelRatingKva": 500
+    },
+    {
+      "nrn": "4607016070",
+      "name": "Harberton Mead",
+      "ratingKva": 500,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "460701607002",
+        "460701607003",
+        "460701607004",
+        "460701607005",
+        "460701607006"
+      ],
+      "workbookRatingsKva": [
+        500
+      ],
+      "loadModelRatingKva": 500
+    },
+    {
+      "nrn": "4617007020",
+      "name": "Harefields",
+      "ratingKva": 500,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "461700702001",
+        "461700702002",
+        "461700702004",
+        "461700702005",
+        "461700702006"
+      ],
+      "workbookRatingsKva": [
+        500
+      ],
+      "loadModelRatingKva": 500
+    },
+    {
+      "nrn": "4618003040",
+      "name": "Henley Avenue",
+      "ratingKva": 750,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "461800304001",
+        "461800304002",
+        "461800304003",
+        "461800304004",
+        "461800304005"
+      ],
+      "workbookRatingsKva": [
+        750
+      ],
+      "loadModelRatingKva": 750
+    },
+    {
+      "nrn": "4618005240",
+      "name": "Heyford Hill Lane",
+      "ratingKva": 500,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "461800524001",
+        "461800524002",
+        "461800524003",
+        "461800524004"
+      ],
+      "workbookRatingsKva": [
+        500
+      ],
+      "loadModelRatingKva": 500
+    },
+    {
+      "nrn": "4607006020",
+      "name": "Hill Top Road",
+      "ratingKva": 300,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "460700602001",
+        "460700602003",
+        "460700602005",
+        "460700602006"
+      ],
+      "workbookRatingsKva": [
+        300
+      ],
+      "loadModelRatingKva": 300
+    },
+    {
+      "nrn": "4618001080",
+      "name": "Hillsborough Close",
+      "ratingKva": 300,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "461800108001",
+        "461800108002",
+        "461800108003",
+        "461800108004",
+        "461800108005",
+        "461800108006"
+      ],
+      "workbookRatingsKva": [
+        300
+      ],
+      "loadModelRatingKva": 300
+    },
+    {
+      "nrn": "4907003060",
+      "name": "Hollybush Row",
+      "ratingKva": 1000,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "490700306002",
+        "490700306003",
+        "490700306004"
+      ],
+      "workbookRatingsKva": [
+        1000
+      ],
+      "loadModelRatingKva": 1000
+    },
+    {
+      "nrn": "4607003010",
+      "name": "Jackdaw Lane",
+      "ratingKva": 500,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "460700301001",
+        "460700301002",
+        "460700301003",
+        "460700301004"
+      ],
+      "workbookRatingsKva": [
+        500
+      ],
+      "loadModelRatingKva": 500
+    },
+    {
+      "nrn": "4607022040",
+      "name": "Jeune Street",
+      "ratingKva": 750,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "460702204001",
+        "460702204002",
+        "460702204004",
+        "460702204005"
+      ],
+      "workbookRatingsKva": [
+        750
+      ],
+      "loadModelRatingKva": 750
+    },
+    {
+      "nrn": "4626001500",
+      "name": "Juxon St Flats",
+      "ratingKva": 750,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "462600150001",
+        "462600150002",
+        "462600150003",
+        "462600150004"
+      ],
+      "workbookRatingsKva": [
+        750
+      ],
+      "loadModelRatingKva": 750
+    },
+    {
+      "nrn": "4911006040",
+      "name": "Kennington Church (Cow Lane)",
+      "ratingKva": 500,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "491100604001",
+        "491100604003",
+        "491100604005",
+        "491100604006"
+      ],
+      "workbookRatingsKva": [
+        500
+      ],
+      "loadModelRatingKva": 500
+    },
+    {
+      "nrn": "4907001040",
+      "name": "King Edward Street",
+      "ratingKva": 750,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "490700104001",
+        "490700104002",
+        "490700104003"
+      ],
+      "workbookRatingsKva": [
+        750
+      ],
+      "loadModelRatingKva": 750
+    },
+    {
+      "nrn": "4607002130",
+      "name": "Latimer Road",
+      "ratingKva": 315,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "460700213001",
+        "460700213002",
+        "460700213003"
+      ],
+      "workbookRatingsKva": [
+        315
+      ],
+      "loadModelRatingKva": 315
+    },
+    {
+      "nrn": "4907004030",
+      "name": "Luther Court",
+      "ratingKva": 500,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "490700403001",
+        "490700403003",
+        "490700403004",
+        "490700403005"
+      ],
+      "workbookRatingsKva": [
+        500
+      ],
+      "loadModelRatingKva": 500
+    },
+    {
+      "nrn": "4603016080",
+      "name": "Lynn Close",
+      "ratingKva": null,
+      "status": "conflicting",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "460301608001",
+        "460301608002",
+        "460301608003",
+        "460301608004"
+      ],
+      "workbookRatingsKva": [
+        5001
+      ],
+      "loadModelRatingKva": 500
+    },
+    {
+      "nrn": "4618005040",
+      "name": "Marlborough Head",
+      "ratingKva": 500,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "461800504001",
+        "461800504002",
+        "461800504003",
+        "461800504005"
+      ],
+      "workbookRatingsKva": [
+        500
+      ],
+      "loadModelRatingKva": 500
+    },
+    {
+      "nrn": "4618006160",
+      "name": "Minchery Farm Pumping Station",
+      "ratingKva": 315,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "461800616001",
+        "461800616003"
+      ],
+      "workbookRatingsKva": [
+        315
+      ],
+      "loadModelRatingKva": 315
+    },
+    {
+      "nrn": "4600017070",
+      "name": "Moor Bank",
+      "ratingKva": 500,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "460001707001",
+        "460001707003",
+        "460001707004",
+        "460001707005"
+      ],
+      "workbookRatingsKva": [
+        500
+      ],
+      "loadModelRatingKva": 500
+    },
+    {
+      "nrn": "4618007100",
+      "name": "Morris House (Barns Road)",
+      "ratingKva": 500,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "461800710001",
+        "461800710003",
+        "461800710004",
+        "461800710005"
+      ],
+      "workbookRatingsKva": [
+        500
+      ],
+      "loadModelRatingKva": 500
+    },
+    {
+      "nrn": "4602006070",
+      "name": "Morton Avenue",
+      "ratingKva": 300,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "460200607001",
+        "460200607002",
+        "460200607003",
+        "460200607004"
+      ],
+      "workbookRatingsKva": [
+        300
+      ],
+      "loadModelRatingKva": 300
+    },
+    {
+      "nrn": "4618001020",
+      "name": "Newman Road",
+      "ratingKva": 500,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "461800102001",
+        "461800102002",
+        "461800102003",
+        "461800102004",
+        "461800102005",
+        "461800102006"
+      ],
+      "workbookRatingsKva": [
+        500
+      ],
+      "loadModelRatingKva": 500
+    },
+    {
+      "nrn": "4600019040",
+      "name": "Nightingale Avenue",
+      "ratingKva": 1000,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "460001904001",
+        "460001904002",
+        "460001904003",
+        "460001904004",
+        "460001904005"
+      ],
+      "workbookRatingsKva": [
+        1000
+      ],
+      "loadModelRatingKva": 1000
+    },
+    {
+      "nrn": "4600007160",
+      "name": "No 22 Garsington Road",
+      "ratingKva": 500,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "460000716001",
+        "460000716002",
+        "460000716003",
+        "460000716004",
+        "460000716005"
+      ],
+      "workbookRatingsKva": [
+        500
+      ],
+      "loadModelRatingKva": 500
+    },
+    {
+      "nrn": "4617008020",
+      "name": "No1 Harbord Rd",
+      "ratingKva": 500,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "461700802001",
+        "461700802002",
+        "461700802003",
+        "461700802004",
+        "461700802005"
+      ],
+      "workbookRatingsKva": [
+        500
+      ],
+      "loadModelRatingKva": 500
+    },
+    {
+      "nrn": "4618002040",
+      "name": "Nowell Road",
+      "ratingKva": 500,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "461800204001",
+        "461800204002",
+        "461800204003",
+        "461800204005",
+        "461800204006"
+      ],
+      "workbookRatingsKva": [
+        500
+      ],
+      "loadModelRatingKva": 500
+    },
+    {
+      "nrn": "4600002010",
+      "name": "Oliver Road",
+      "ratingKva": 500,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "460000201001",
+        "460000201002",
+        "460000201003",
+        "460000201004",
+        "460000201005",
+        "460000201006",
+        "460000201007"
+      ],
+      "workbookRatingsKva": [
+        500
+      ],
+      "loadModelRatingKva": 500
+    },
+    {
+      "nrn": "4603016100",
+      "name": "Osler Road",
+      "ratingKva": 300,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "460301610002",
+        "460301610003",
+        "460301610004",
+        "460301610006"
+      ],
+      "workbookRatingsKva": [
+        300
+      ],
+      "loadModelRatingKva": 300
+    },
+    {
+      "nrn": "4626006020",
+      "name": "Osney Bridge Street",
+      "ratingKva": null,
+      "status": "conflicting",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "462600602001",
+        "462600602002",
+        "462600602003",
+        "462600602004",
+        "462600602005"
+      ],
+      "workbookRatingsKva": [
+        800
+      ],
+      "loadModelRatingKva": 1000
+    },
+    {
+      "nrn": "4626004180",
+      "name": "Osney Mead Pylon",
+      "ratingKva": 750,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "462600418001",
+        "462600418003",
+        "462600418004",
+        "462600418005"
+      ],
+      "workbookRatingsKva": [
+        750
+      ],
+      "loadModelRatingKva": 750
+    },
+    {
+      "nrn": "4603010110",
+      "name": "Otmoor Lane Beckley",
+      "ratingKva": 200,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "460301011001",
+        "460301011003"
+      ],
+      "workbookRatingsKva": [
+        200
+      ],
+      "loadModelRatingKva": 200
+    },
+    {
+      "nrn": "4907006130",
+      "name": "Paradise Street",
+      "ratingKva": null,
+      "status": "missing",
+      "sources": "load-model",
+      "connectedCircuits": [
+        "490700613001",
+        "490700613003",
+        "490700613005"
+      ],
+      "workbookRatingsKva": [],
+      "loadModelRatingKva": null
+    },
+    {
+      "nrn": "4910011180",
+      "name": "Park Town",
+      "ratingKva": 500,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "491001118001",
+        "491001118002",
+        "491001118003"
+      ],
+      "workbookRatingsKva": [
+        500
+      ],
+      "loadModelRatingKva": 500
+    },
+    {
+      "nrn": "4911006020",
+      "name": "Poplar Grove Garages",
+      "ratingKva": 500,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "491100602001",
+        "491100602002",
+        "491100602003",
+        "491100602005"
+      ],
+      "workbookRatingsKva": [
+        500
+      ],
+      "loadModelRatingKva": 500
+    },
+    {
+      "nrn": "4618006140",
+      "name": "Priory Road",
+      "ratingKva": 500,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "461800614001",
+        "461800614002",
+        "461800614003",
+        "461800614004",
+        "461800614006",
+        "461800614008",
+        "461800614009",
+        "461800614010"
+      ],
+      "workbookRatingsKva": [
+        500
+      ],
+      "loadModelRatingKva": 500
+    },
+    {
+      "nrn": "4907006010",
+      "name": "Queens College",
+      "ratingKva": 1000,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "490700601001",
+        "490700601002",
+        "490700601003",
+        "490700601005"
+      ],
+      "workbookRatingsKva": [
+        1000
+      ],
+      "loadModelRatingKva": 1000
+    },
+    {
+      "nrn": "4618002100",
+      "name": "Rivermead Road",
+      "ratingKva": 500,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "461800210001",
+        "461800210002",
+        "461800210003",
+        "461800210004"
+      ],
+      "workbookRatingsKva": [
+        500
+      ],
+      "loadModelRatingKva": 500
+    },
+    {
+      "nrn": "4914002080",
+      "name": "Rogers Street",
+      "ratingKva": 500,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "491400208001",
+        "491400208002",
+        "491400208003",
+        "491400208004"
+      ],
+      "workbookRatingsKva": [
+        500
+      ],
+      "loadModelRatingKva": 500
+    },
+    {
+      "nrn": "4602014030",
+      "name": "Sainsburys Car Park",
+      "ratingKva": 315,
+      "status": "published",
+      "sources": "workbook",
+      "connectedCircuits": [
+        "460201403001",
+        "460201403002",
+        "460201403003"
+      ],
+      "workbookRatingsKva": [
+        315
+      ],
+      "loadModelRatingKva": null
+    },
+    {
+      "nrn": "4603016090",
+      "name": "Sandfield Road",
+      "ratingKva": 500,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "460301609001",
+        "460301609002",
+        "460301609003"
+      ],
+      "workbookRatingsKva": [
+        500
+      ],
+      "loadModelRatingKva": 500
+    },
+    {
+      "nrn": "4911003020",
+      "name": "Sandford Lane Industrial",
+      "ratingKva": 500,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "491100302001",
+        "491100302002",
+        "491100302003",
+        "491100302005"
+      ],
+      "workbookRatingsKva": [
+        500
+      ],
+      "loadModelRatingKva": 500
+    },
+    {
+      "nrn": "4626004340",
+      "name": "Southern By Pass",
+      "ratingKva": 500,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "462600434001",
+        "462600434002",
+        "462600434003",
+        "462600434004",
+        "462600434005",
+        "462600434006"
+      ],
+      "workbookRatingsKva": [
+        500
+      ],
+      "loadModelRatingKva": 500
+    },
+    {
+      "nrn": "4626006170",
+      "name": "Springfield Road",
+      "ratingKva": 800,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "462600617001",
+        "462600617002",
+        "462600617003",
+        "462600617004",
+        "462600617005"
+      ],
+      "workbookRatingsKva": [
+        800
+      ],
+      "loadModelRatingKva": 800
+    },
+    {
+      "nrn": "4910002030",
+      "name": "St Bernards Road",
+      "ratingKva": 750,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "491000203001",
+        "491000203002",
+        "491000203003",
+        "491000203004",
+        "491000203005",
+        "491000203006",
+        "491000203007"
+      ],
+      "workbookRatingsKva": [
+        750
+      ],
+      "loadModelRatingKva": 750
+    },
+    {
+      "nrn": "4914005160",
+      "name": "St Edwards School Woodstock Rd",
+      "ratingKva": 300,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "491400516001",
+        "491400516002"
+      ],
+      "workbookRatingsKva": [
+        300
+      ],
+      "loadModelRatingKva": 300
+    },
+    {
+      "nrn": "4914008060",
+      "name": "Staverton Road",
+      "ratingKva": 500,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "491400806001",
+        "491400806002",
+        "491400806003",
+        "491400806004",
+        "491400806005"
+      ],
+      "workbookRatingsKva": [
+        500
+      ],
+      "loadModelRatingKva": 500
+    },
+    {
+      "nrn": "4602014060",
+      "name": "Stratfield Brake",
+      "ratingKva": 500,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "460201406001",
+        "460201406002",
+        "460201406003",
+        "460201406004",
+        "460201406005"
+      ],
+      "workbookRatingsKva": [
+        500
+      ],
+      "loadModelRatingKva": 500
+    },
+    {
+      "nrn": "4600015190",
+      "name": "Temple Road",
+      "ratingKva": 500,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "460001519001",
+        "460001519003",
+        "460001519004",
+        "460001519005"
+      ],
+      "workbookRatingsKva": [
+        500
+      ],
+      "loadModelRatingKva": 500
+    },
+    {
+      "nrn": "4626003220",
+      "name": "The Perch Binsey",
+      "ratingKva": 500,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "462600322001"
+      ],
+      "workbookRatingsKva": [
+        500
+      ],
+      "loadModelRatingKva": 500
+    },
+    {
+      "nrn": "4603008050",
+      "name": "Toot Hill Butts Flats",
+      "ratingKva": 500,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "460300805001",
+        "460300805002",
+        "460300805003",
+        "460300805004",
+        "460300805005"
+      ],
+      "workbookRatingsKva": [
+        500
+      ],
+      "loadModelRatingKva": 500
+    },
+    {
+      "nrn": "4607001030",
+      "name": "University Running Ground",
+      "ratingKva": 500,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "460700103001",
+        "460700103004"
+      ],
+      "workbookRatingsKva": [
+        500
+      ],
+      "loadModelRatingKva": 500
+    },
+    {
+      "nrn": "4911006180",
+      "name": "Upper Road",
+      "ratingKva": 250,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "491100618002",
+        "491100618003",
+        "491100618004"
+      ],
+      "workbookRatingsKva": [
+        250
+      ],
+      "loadModelRatingKva": 250
+    },
+    {
+      "nrn": "4626001480",
+      "name": "Venables Close",
+      "ratingKva": 750,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "462600148001",
+        "462600148002",
+        "462600148003",
+        "462600148004",
+        "462600148005"
+      ],
+      "workbookRatingsKva": [
+        750
+      ],
+      "loadModelRatingKva": 750
+    },
+    {
+      "nrn": "4626001360",
+      "name": "Wellington Square",
+      "ratingKva": null,
+      "status": "conflicting",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "462600136001",
+        "462600136002",
+        "462600136003",
+        "462600136004"
+      ],
+      "workbookRatingsKva": [
+        800,
+        500
+      ],
+      "loadModelRatingKva": 500
+    },
+    {
+      "nrn": "4911006100",
+      "name": "Woodcroft",
+      "ratingKva": 200,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "491100610001",
+        "491100610002"
+      ],
+      "workbookRatingsKva": [
+        200
+      ],
+      "loadModelRatingKva": 200
+    },
+    {
+      "nrn": "4603016120",
+      "name": "Woodlands Road",
+      "ratingKva": 500,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "460301612001",
+        "460301612002",
+        "460301612003",
+        "460301612004",
+        "460301612005"
+      ],
+      "workbookRatingsKva": [
+        500
+      ],
+      "loadModelRatingKva": 500
+    },
+    {
+      "nrn": "4617007160",
+      "name": "Wyatt Road",
+      "ratingKva": 500,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "461700716001",
+        "461700716002",
+        "461700716003",
+        "461700716005"
+      ],
+      "workbookRatingsKva": [
+        500
+      ],
+      "loadModelRatingKva": 500
+    },
+    {
+      "nrn": "4602008090",
+      "name": "Yarnton Nurseries",
+      "ratingKva": 315,
+      "status": "published",
+      "sources": "workbook-and-load-model",
+      "connectedCircuits": [
+        "460200809003",
+        "460200809004"
+      ],
+      "workbookRatingsKva": [
+        315
+      ],
+      "loadModelRatingKva": 315
+    }
+  ]
+}

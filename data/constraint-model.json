@@ -40,7 +40,7 @@
     {
       "label": "SSEN network rating and loading information",
       "url": "https://www.ssen.co.uk/our-services/competition-in-connections/alternative-provider-network-information/network-rating-and-loading-information/",
-      "use": "Provenance context; no asset-specific limits were found for this cohort"
+      "use": "Published transformer ratings in transformer-ratings.json; shared asset references, not verified feeder limits. Conflicting records remain unresolved."
     }
   ]
 }

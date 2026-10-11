@@ -1,4 +1,5 @@
 import type { PriceParameters, PricedSample } from "./price";
+import type { FeederSizingCurve } from "./sizing-equilibrium";
 
 export type RatingSource = "amps" | "kva" | "assumed-transformer-share" | "assumed-feeder-fuse";
 
@@ -24,6 +25,45 @@ export type Feeder = {
   samples: PricedSample[];
 };
 
+export type AnnualCapacity = {
+  timeProfile?: Array<{ time: string; p50: number; p90: number; p99: number; count: number }>;
+  duration?: CapacityDuration;
+  worstDay?: WorstDay | null;
+  status: "ready" | "insufficient";
+  meanDailyMaxImportKw: number | null;
+  meanDailyMaxExportKw: number | null;
+  assetKw: number | null;
+  coveredDays: number;
+  totalDays: number;
+  coverage: number;
+};
+
+export type CapacityDuration = {
+  points: Array<{ fraction: number; kw: number }>;
+  observedHours: number;
+  expectedHours: number;
+  peakKw: number | null;
+  nearPeakHours: number;
+  targetKw: number | null;
+  aboveTargetHours: number | null;
+};
+
+export type WorstDay = {
+  date: string;
+  peakLoading: number;
+  expectedBuckets: number;
+  samples: Array<{ t: string; value: number }>;
+};
+
+export type AnnualCapacityModel = {
+  generatedAt: string;
+  window: { start: string; end: string };
+  method: "mean-daily-absolute-maxima";
+  coverageRule: { day: number; year: number; month: number };
+  feeders: Record<string, AnnualCapacity>;
+  substations: Record<string, AnnualCapacity>;
+};
+
 export type SnapshotComparison = {
   localSwingGbpPerMwh: number;
   wholesaleSwingGbpPerMwh: number;
@@ -32,6 +72,19 @@ export type SnapshotComparison = {
 };
 
 export type Snapshot = {
+  annualCapacity?: AnnualCapacityModel;
+  sizing?: { generatedAt: string; window: { start: string; end: string }; feeders: Record<string, FeederSizingCurve> };
+  windowMode?: "previous-24h" | "latest-available-24h" | "selected-day";
+  transformerRatings?: Array<{
+    nrn: string;
+    name: string;
+    ratingKva: number | null;
+    status: "published" | "conflicting" | "missing";
+    sources: string;
+    connectedCircuits: string[];
+    workbookRatingsKva: Array<number | null>;
+    loadModelRatingKva: number | null;
+  }>;
   updatedAt: string;
   source: "fixture" | "nerda-historical";
   mode: "synthetic" | "historical";

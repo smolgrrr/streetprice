@@ -29,15 +29,19 @@ export function SeriesChart({
   cursor,
   ariaLabel,
   yAxis,
+  bands = [],
+  viewWidth = 960,
 }: {
   series: Series[];
   cursor: number;
   ariaLabel: string;
   yAxis?: { label: string; format: "price" | "number" };
+  bands?: Array<{ lower: Array<number | null>; upper: Array<number | null>; color: string }>;
+  viewWidth?: number;
 }) {
-  const width = 960;
+  const width = viewWidth;
   const height = 260;
-  const values = series.flatMap((item) => item.values).filter((value): value is number => value !== null);
+  const values = [...series.flatMap((item) => item.values), ...bands.flatMap((band) => [...band.lower, ...band.upper])].filter((value): value is number => value !== null && Number.isFinite(value));
   if (values.length === 0) return <p className="chart-empty">No complete samples at this time.</p>;
   const rawMin = Math.min(...values);
   const rawMax = Math.max(...values);
@@ -70,6 +74,13 @@ export function SeriesChart({
     <svg className="chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={ariaLabel}>
       <title>{ariaLabel}</title>
       {yAxis ? <text x={left} y={14} className="chart-y-title">{yAxis.label}</text> : null}
+      {bands.flatMap((band, bandIndex) => band.lower.slice(0, -1).map((low, index) => {
+        const nextLow = band.lower[index + 1];
+        const high = band.upper[index];
+        const nextHigh = band.upper[index + 1];
+        if (low == null || nextLow == null || high == null || nextHigh == null) return null;
+        return <path key={`${bandIndex}-${index}`} d={`M${x(index)} ${y(low)} L${x(index + 1)} ${y(nextLow)} L${x(index + 1)} ${y(nextHigh)} L${x(index)} ${y(high)} Z`} fill={band.color} />;
+      }))}
       {gridTicks.map((value) => (
         <g key={value}>
           {yAxis ? (

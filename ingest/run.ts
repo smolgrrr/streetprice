@@ -1,7 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { compareFeeders, qualityFor } from "../lib/comparison";
-import { dayBounds } from "../lib/constraint";
+import { previous24Hours } from "../lib/annual-capacity";
 import { ASSUMED_FUSE_AMPS } from "../lib/cohort";
 import { fetchMarketIndex, wholesaleAt } from "../lib/elexon";
 import { loadLocalEnv } from "../lib/env";
@@ -20,7 +20,6 @@ loadLocalEnv();
 
 const HOUR = 60 * 60 * 1000;
 const HALF_HOUR = 30 * 60 * 1000;
-const DEFAULT_WINDOW_START = "2026-09-29T00:00:00.000Z";
 
 async function paged(measurementId: string, after: Date, before: Date): Promise<AnalogSeries[]> {
   const pages: AnalogSeries[] = [];
@@ -72,7 +71,7 @@ async function mapPool<T, R>(items: T[], limit: number, task: (item: T, index: n
   return results;
 }
 
-async function main(): Promise<void> {
+async function main(availableEnd?: Date): Promise<void> {
   const cohortFile = path.join(process.cwd(), "cohort.json");
   const discovered = await readJson<CohortFeeder[]>(cohortFile);
   if (!discovered || discovered.length === 0) {
@@ -84,16 +83,13 @@ async function main(): Promise<void> {
   const cohort = selectedIds.size
     ? discovered.filter((feeder) => selectedIds.has(feeder.id))
     : discovered;
-  const search = await readJson<{ selectedDay: string | null }>(path.join(process.cwd(), "data", "constraint-search-result.json"));
-
-  const selectedStart = search?.selectedDay
-    ? new Date(dayBounds(search.selectedDay).start).toISOString()
-    : DEFAULT_WINDOW_START;
-  const start = new Date(process.env.NERDA_WINDOW_START ?? selectedStart);
+  if (previous && cohort.length !== previous.feeders.length) {
+    throw new Error("Discovery did not match every saved feeder; the previous snapshot was left in place.");
+  }
+  const recent = availableEnd ? { start: new Date(+availableEnd - 24 * HOUR), end: availableEnd } : previous24Hours();
+  const start = process.env.NERDA_WINDOW_START ? new Date(process.env.NERDA_WINDOW_START) : recent.start;
   if (Number.isNaN(start.getTime())) throw new Error("NERDA_WINDOW_START is not a valid timestamp");
-  const end = search?.selectedDay && !process.env.NERDA_WINDOW_START
-    ? new Date(dayBounds(search.selectedDay).end)
-    : new Date(start.getTime() + 24 * HOUR);
+  const end = process.env.NERDA_WINDOW_START ? new Date(start.getTime() + 24 * HOUR) : recent.end;
   const expectedBuckets = Math.round((end.getTime() - start.getTime()) / HALF_HOUR);
   const cacheFile = path.join(process.cwd(), "data", "ingest-cache.json");
   const cached = await readJson<{ windowStart: string; windowEnd: string; feeders: Record<string, Feeder> }>(cacheFile);
@@ -174,21 +170,34 @@ async function main(): Promise<void> {
     .flatMap((feeder) => feeder.samples.map((sample) => sample.t))
     .sort()
     .at(-1);
-  if (!dataThrough) throw new Error("No feeder in the Oxford area had enough complete three-phase buckets");
+  if (!dataThrough && !availableEnd && !process.env.NERDA_WINDOW_START) {
+    console.log("No readings in the previous 24 hours; checking the latest available readings in the past 30 days.");
+    const tails = await mapPool(cohort, 4, async row => {
+      const analogs = (await Promise.all(row.powerMeasurementIds.map(id => withRetry(id, () =>
+        fetchBetween(id, new Date(+end - 30 * 24 * HOUR), end))))).flat();
+      return threePhasePowerKw(mergeAnalogSeries(analogs), row.powerScaleToKw).map(point => point.t).sort().at(-1);
+    });
+    const latest = tails.filter((t): t is string => Boolean(t)).sort().at(-1);
+    if (latest) {
+      console.log(`Latest available half-hour: ${latest}; using the preceding 24-hour window.`);
+      return main(new Date(Date.parse(latest) + HALF_HOUR));
+    }
+  }
+  if (!dataThrough) throw new Error("No complete three-phase readings found. The previous snapshot was left in place.");
 
   const streetFile = path.join(process.cwd(), "data", "street-network.json");
   const streetNetwork = await readJson<{ ways: Array<{ coords: [number, number][] }> }>(streetFile);
-  if (!streetNetwork || streetNetwork.ways.length === 0) {
+  if ((!streetNetwork || streetNetwork.ways.length === 0) && !previous?.streets) {
     throw new Error("data/street-network.json is missing. Run npm run streets. The previous snapshot was left in place.");
   }
-  const streets = streetLayout(
+  const streets = previous?.streets ?? streetLayout(
     feeders.map((feeder) => ({
       id: feeder.id,
       substationId: feeder.substationId,
       lat: feeder.lat,
       lon: feeder.lon,
     })),
-    streetNetwork.ways,
+    streetNetwork!.ways,
   );
   console.log(`Traced ${streets.traces.length} feeders along nearby streets. ${feeders.length - new Set(streets.traces.map((trace) => trace.feederId)).size} have a dot only.`);
 
@@ -196,6 +205,7 @@ async function main(): Promise<void> {
     updatedAt: new Date().toISOString(),
     source: "nerda-historical",
     mode: "historical",
+    windowMode: process.env.NERDA_WINDOW_START ? "selected-day" : availableEnd ? "latest-available-24h" : "previous-24h",
     window: { start: start.toISOString(), end: end.toISOString(), dataThrough },
     capGbpPerMwh: cap,
     ratingAssumptionAmps: ASSUMED_FUSE_AMPS,

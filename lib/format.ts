@@ -18,6 +18,10 @@ export function formatTime(t: string): string {
   return time.format(new Date(t));
 }
 
+export function formatDate(t: string): string {
+  return new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", day: "numeric", month: "short", year: "numeric" }).format(new Date(t));
+}
+
 export function formatStamp(t: string): string {
   return stamp.format(new Date(t));
 }

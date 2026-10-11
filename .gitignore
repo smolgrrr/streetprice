@@ -46,6 +46,9 @@ next-env.d.ts
 !/data/snapshot.json
 !/data/constraint-model.json
 !/data/constraint-search-result.json
+!/data/transformer-ratings.json
+!/data/annual-capacity.json
+!/data/sizing-curves.json
 /cohort.json
 
 # copied from maplibre-gl by scripts/copy-map-worker.mjs

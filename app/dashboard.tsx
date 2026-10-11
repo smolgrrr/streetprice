@@ -1,688 +1,137 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { SeriesChart } from "@/components/charts";
 import { PriceMap } from "@/components/price-map";
-import { addonColor, ratioColor } from "@/lib/color";
-import { formatKwhPrice, formatKw, formatPct, formatStamp, formatTime } from "@/lib/format";
+import { SeriesChart } from "@/components/charts";
+import { StoryHero, TimeSlider } from "@/components/model-story";
+import { SizingEconomics } from "@/components/sizing-economics";
+import { ScenarioControls } from "@/components/scenario-controls";
+import { batteryDefaults, batteryHomesForShare, simulateFlexibility, type ViewScenario } from "@/lib/flexibility";
+import { capacityColor } from "@/lib/color";
+import { formatPct, formatStamp } from "@/lib/format";
 import { substationsOf } from "@/lib/group";
-import { localToWholesale, type PricedSample } from "@/lib/price";
 import { streetLayout } from "@/lib/street-trace";
+import { monitoredPowerAt, transformerFor } from "@/lib/transformer";
 import type { Feeder, Snapshot } from "@/lib/types";
+import { openingFeeder } from "@/lib/worst-day";
 
-const HALF_HOUR_MS = 30 * 60 * 1000;
-const PLAYBACK_STEP_MS = 3000;
-
-function clockOf(snapshot: Snapshot): string[] {
-  const start = Date.parse(snapshot.window.start);
-  const end = Date.parse(snapshot.window.end);
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return [];
-  return Array.from(
-    { length: Math.round((end - start) / HALF_HOUR_MS) },
-    (_, index) => new Date(start + index * HALF_HOUR_MS).toISOString(),
-  );
-}
-
-function sampleAt(feeder: Feeder, t: string | undefined): PricedSample | undefined {
-  return t ? feeder.samples.find((sample) => sample.t === t) : undefined;
-}
-
-function averageAt(
-  feeders: Feeder[],
-  t: string | undefined,
-  field: "local" | "wholesale",
-): number | null {
-  const values = feeders.flatMap((feeder) => {
-    const sample = sampleAt(feeder, t);
-    return sample ? [sample[field]] : [];
-  });
-  if (values.length === 0) return null;
-  return values.reduce((sum, value) => sum + value, 0) / values.length;
-}
-
-function feederExtremesAt(feeders: Feeder[], t: string | undefined) {
-  let premium: { feeder: Feeder; delta: number } | null = null;
-  let discount: { feeder: Feeder; delta: number } | null = null;
-  for (const feeder of feeders) {
-    const sample = sampleAt(feeder, t);
-    if (!sample) continue;
-    const delta = sample.local - sample.wholesale;
-    if (delta > 0 && (!premium || delta > premium.delta)) premium = { feeder, delta };
-    if (delta < 0 && (!discount || delta < discount.delta)) discount = { feeder, delta };
-  }
-  return { premium, discount };
-}
-
-function stateOf(sample: PricedSample | undefined, cap: number): "Export incentive" | "No network adjustment" | "Import surcharge" | "No reading" {
-  if (!sample) return "No reading";
-  if (sample.addon > cap * 0.05) return "Import surcharge";
-  if (sample.addon < -cap * 0.05) return "Export incentive";
-  return "No network adjustment";
-}
-
-function qualityLabel(feeder: Feeder): string {
-  return feeder.quality.status === "good" ? "Good coverage" : feeder.quality.status === "partial" ? "Partial coverage" : "Insufficient";
-}
-
-function formatRatio(ratio: number): string {
-  const digits = Math.abs(ratio) >= 10 ? 1 : 2;
-  return `${ratio.toFixed(digits)}×`;
+function clockOf(snapshot: Snapshot) {
+  const start = Date.parse(snapshot.window.start), end = Date.parse(snapshot.window.end);
+  return Array.from({ length: Math.round((end - start) / 1800000) }, (_, index) => new Date(start + index * 1800000).toISOString());
 }
 
 export function Dashboard() {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [substationId, setSubstationId] = useState<string | null>(null);
+  const [error, setError] = useState(false);
   const [feederId, setFeederId] = useState<string | null>(null);
-  const [index, setIndex] = useState(0);
-  const [playing, setPlaying] = useState(false);
+  const [cursor, setCursor] = useState(0);
+  const [scenario, setScenario] = useState<ViewScenario>("battery");
+  const enabled = scenario !== "none";
+  const [batteryShare, setBatteryShare] = useState(33);
+  const homes = batteryHomesForShare(batteryShare);
+  const [mapMode, setMapMode] = useState<"peak" | "time">("peak");
+  const [mapLayer, setMapLayer] = useState<"loading" | "value">("loading");
+  const [query, setQuery] = useState("");
   const [focus, setFocus] = useState<{ lat: number; lon: number; token: number } | null>(null);
-
   useEffect(() => {
-    let cancelled = false;
-    fetch("/api/snapshot")
-      .then(async (response) => {
-        if (!response.ok) throw new Error(String(response.status));
-        return (await response.json()) as Snapshot;
-      })
-      .then((data) => {
-        if (cancelled) return;
-        const clock = clockOf(data);
-        const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-        const through = clock.findLastIndex((t) => t <= data.window.dataThrough);
-        setSnapshot(data);
-        setIndex(reducedMotion ? Math.max(0, through) : 0);
-        setPlaying(!reducedMotion && clock.length > 1);
-        setSubstationId(null);
-        setFeederId(null);
-      })
-      .catch(() => {
-        if (!cancelled) setError("The Oxford snapshot could not be loaded.");
-      });
-    return () => {
-      cancelled = true;
-    };
+    const controller = new AbortController();
+    fetch("/api/snapshot", { signal: controller.signal }).then(async (response) => {
+      if (!response.ok) throw new Error("Snapshot unavailable");
+      return await response.json() as Snapshot;
+    }).then((data) => {
+      if (controller.signal.aborted) return;
+      setSnapshot(data);
+      const first = openingFeeder(data.feeders, data.annualCapacity, data.ratingAssumptionAmps, clockOf(data));
+      setFeederId(first.id);
+      const peak = first.samples.reduce((best, sample) => sample.pKw > best.pKw ? sample : best, first.samples[0]);
+      setCursor(Math.max(0, clockOf(data).indexOf(peak?.t)));
+    }).catch(() => { if (!controller.signal.aborted) setError(true); });
+    return () => controller.abort();
   }, []);
-
-  useEffect(() => {
-    if (!playing || !snapshot) return;
-    const length = clockOf(snapshot).length;
-    if (length < 2) return;
-    const timer = window.setInterval(() => {
-      setIndex((current) => (current + 1) % length);
-    }, PLAYBACK_STEP_MS);
-    return () => window.clearInterval(timer);
-  }, [playing, snapshot]);
-
   const feeders = useMemo(() => snapshot?.feeders ?? [], [snapshot]);
   const groups = useMemo(() => substationsOf(feeders), [feeders]);
-  const layout = useMemo(() => {
-    if (snapshot?.streets) return snapshot.streets;
-    return streetLayout(
-      feeders.map((item) => ({
-        id: item.id,
-        substationId: item.substationId,
-        lat: item.lat,
-        lon: item.lon,
-      })),
-    );
-  }, [snapshot, feeders]);
-  const clock = useMemo(() => (snapshot ? clockOf(snapshot) : []), [snapshot]);
-  const cursorTime = clock[index];
-  const substation = groups.find((group) => group.id === substationId);
-  const feeder = substation?.feeders.find((item) => item.id === feederId);
-  const scopedFeeders = feeder ? [feeder] : substation ? substation.feeders : feeders;
-  const sample = feeder ? sampleAt(feeder, cursorTime) : undefined;
-  const scopeLocalNow = averageAt(scopedFeeders, cursorTime, "local");
-  const scopeWholesaleNow = averageAt(scopedFeeders, cursorTime, "wholesale");
-  const instant = {
-    localSwingGbpPerMwh:
-      scopeLocalNow === null || scopeWholesaleNow === null ? null : scopeLocalNow - scopeWholesaleNow,
-    wholesaleGbpPerMwh: scopeWholesaleNow,
-    ratio:
-      scopeLocalNow === null || scopeWholesaleNow === null || scopeWholesaleNow === 0
-        ? null
-        : scopeLocalNow / scopeWholesaleNow,
-  };
-  const scopeLabel = feeder
-    ? `${substation?.name ?? "Selected substation"} ${feeder.name}`
-    : substation
-      ? `${substation.name} downstream LV feeders`
-      : "the Oxford distribution network";
-  const scopeKind = feeder ? "LV feeder" : substation ? "Substation average" : "Network average";
-  const comparisonFeeders = substation ? substation.feeders : feeders;
-  const extremes = feederExtremesAt(comparisonFeeders, cursorTime);
-
-  function seek(next: number) {
-    setPlaying(false);
-    setIndex(next);
+  const clock = useMemo(() => snapshot ? clockOf(snapshot) : [], [snapshot]);
+  const config = useMemo(() => ({ ...batteryDefaults, households: homes }), [homes]);
+  const simulations = useMemo(() => new Map(feeders.map((feeder) => [feeder.id, simulateFlexibility(feeder, clock, config, snapshot?.ratingAssumptionAmps, scenario === "long-term" ? snapshot?.annualCapacity?.feeders[feeder.id] ?? null : undefined)])), [feeders, clock, config, snapshot?.ratingAssumptionAmps, snapshot?.annualCapacity, scenario]);
+  const layout = useMemo(() => snapshot?.streets ?? streetLayout(feeders), [snapshot, feeders]);
+  const feeder = feeders.find((item) => item.id === feederId) ?? feeders[0];
+  const group = groups.find((item) => item.id === feeder?.substationId);
+  const result = simulations.get(feeder?.id);
+  if (error) return <main className="status"><p className="brand">Streetprice</p><h1>The Oxford snapshot could not be loaded.</h1><p>Please reload to try again.</p></main>;
+  if (!snapshot || !feeder || !result || !group || !clock.length) return <main className="status"><p className="brand">Streetprice</p><h1>Loading the Oxford model…</h1></main>;
+  function selectFeeder(id: string, moveMap = false) {
+    const item = feeders.find((candidate) => candidate.id === id);
+    if (!item) return;
+    setFeederId(id);
+    const peak = item.samples.reduce((best, sample) => sample.pKw > best.pKw ? sample : best, item.samples[0]);
+    if (peak) setCursor(Math.max(0, clock.indexOf(peak.t)));
+    if (moveMap) setFocus({ lat: item.lat, lon: item.lon, token: Date.now() });
   }
-
-  function selectSubstation(id: string, moveMap = false) {
-    const group = groups.find((item) => item.id === id);
-    setSubstationId(id);
-    setFeederId(null);
-    if (moveMap && group) setFocus({ lat: group.lat, lon: group.lon, token: Date.now() });
+  function defaultFeeder(items: Feeder[]) {
+    return openingFeeder(items, snapshot?.annualCapacity, snapshot?.ratingAssumptionAmps, clock);
   }
-
-  function clearSelection() {
-    setSubstationId(null);
-    setFeederId(null);
-  }
-
-  function selectFeeder(nextSubstationId: string, nextFeederId: string, moveMap = false) {
-    setSubstationId(nextSubstationId);
-    setFeederId(nextFeederId);
-    if (moveMap) {
-      const group = groups.find((item) => item.id === nextSubstationId);
-      if (group) setFocus({ lat: group.lat, lon: group.lon, token: Date.now() });
-    }
-  }
-
-  if (error) {
-    return (
-      <main className="status">
-        <p className="brand">Streetprice</p>
-        <h1>We could not load the Oxford map.</h1>
-        <p>{error}</p>
-      </main>
-    );
-  }
-
-  if (!snapshot || clock.length === 0) {
-    return (
-      <main className="status">
-        <p className="brand">Streetprice</p>
-        <h1>Loading the Oxford map…</h1>
-      </main>
-    );
-  }
-
-  const cap = snapshot.capGbpPerMwh;
-  const state = stateOf(sample, cap);
-  const stateColor = sample ? addonColor(sample.addon, cap) : "#9aa3ab";
-  const averageCoverage =
-    feeders.reduce((sum, item) => sum + item.quality.completeness, 0) / Math.max(1, feeders.length);
-  const selectedClockSamples = feeder
-    ? clock.map((t) => sampleAt(feeder, t))
-    : clock.map(() => undefined);
-  const localSeries = clock.map((t) => averageAt(scopedFeeders, t, "local"));
-  const wholesaleSeries = clock.map((t) => averageAt(scopedFeeders, t, "wholesale"));
-  const points = groups.map((group) => {
-    const ratios = group.feeders.flatMap((item) => {
-      const reading = sampleAt(item, cursorTime);
-      const ratio = reading ? localToWholesale(reading.local, reading.wholesale) : null;
-      return ratio === null ? [] : [ratio];
-    });
-    const strongestRatio = ratios.reduce<number | null>((strongest, ratio) => {
-      if (strongest === null) return ratio;
-      return Math.abs(ratio - 1) > Math.abs(strongest - 1) ? ratio : strongest;
+  function ratioFor(item: Feeder) {
+    const simulation = simulations.get(item.id)!;
+    if (!simulation.sizingAvailable) return null;
+    const rows = mapMode === "time" ? [simulation.rows[cursor]] : simulation.rows;
+    return rows.reduce<number | null>((strongest, row) => {
+      if (!row) return strongest;
+      const power = enabled ? row.net : row.baseline;
+      const ratio = power < 0 ? power / simulation.exportKw : power / simulation.importKw;
+      return strongest === null || Math.abs(ratio) > Math.abs(strongest) ? ratio : strongest;
     }, null);
-    return {
-      id: group.id,
-      name: group.name,
-      lat: group.lat,
-      lon: group.lon,
-      color: strongestRatio === null ? "#8d969e" : ratioColor(strongestRatio),
-      selected: group.id === substation?.id,
-    };
+  }
+  function colorFor(item: Feeder) {
+    if (mapLayer === "value") {
+      const value = snapshot?.sizing?.feeders[item.id]?.points[enabled ? homes : 0]?.tariffGbpPerKwh;
+      return value === null || value === undefined ? "#e2e6ea" : capacityColor(-Math.min(1, value / 0.1));
+    }
+    const ratio = ratioFor(item);
+    return ratio === null ? "#e2e6ea" : capacityColor(ratio);
+  }
+  const points = groups.map((item) => {
+    const strongest = item.feeders.reduce<Feeder | null>((best, candidate) => {
+      const ratio = ratioFor(candidate);
+      return ratio !== null && (best === null || Math.abs(ratio) > Math.abs(ratioFor(best) ?? 0)) ? candidate : best;
+    }, null);
+    return { id: item.id, name: item.name, lat: item.lat, lon: item.lon, color: strongest ? colorFor(strongest) : "#e2e6ea", selected: item.id === group.id };
   });
   const lines = layout.traces.map((trace) => {
-    const item = feeders.find((feederItem) => feederItem.id === trace.feederId);
-    const reading = item ? sampleAt(item, cursorTime) : undefined;
-    const ratio = reading ? localToWholesale(reading.local, reading.wholesale) : null;
-    return {
-      feederId: trace.feederId,
-      substationId: trace.substationId,
-      coordinates: trace.coordinates,
-      color: ratio === null ? "#c5c8cc" : ratioColor(ratio),
-      selected: trace.feederId === feeder?.id,
-    };
+    const item = feeders.find((candidate) => candidate.id === trace.feederId);
+    return { ...trace, color: item ? colorFor(item) : "#e2e6ea", selected: trace.feederId === feeder.id };
   });
-
-  return (
-    <main className="story">
-      <section className="intro section" id="top">
-        <div className="intro-kicker">
-          <p className="eyebrow">Local grid signal · 24-hour view</p>
-          <a
-            className="social-link"
-            href="https://x.com/dootonline"
-            target="_blank"
-            rel="noreferrer"
-            aria-label="Doot Online on X"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-            </svg>
-          </a>
-        </div>
-        <div className="intro-title-row">
-          <h1>Oxford, priced street by street</h1>
-          <p className="as-of">Updated {formatStamp(snapshot.window.dataThrough)}</p>
-        </div>
-        <p className="intro-summary" id="pilot-result">
-          Across {groups.length} substations and {feeders.length} LV feeders, local grid conditions moved
-          modelled prices {snapshot.comparison.ratio === null ? "–" : <strong>{snapshot.comparison.ratio.toFixed(1)}×</strong>} as much as wholesale.
-        </p>
-        {snapshot.source === "fixture" ? (
-          <p className="data-banner">
-            The local NeRDA snapshot is unavailable, so this page is showing a clearly labelled synthetic example.
-          </p>
-        ) : null}
-      </section>
-
-      <section className="hero section" aria-labelledby="pilot-result">
-        <figure className="map-column">
-          <div className="map-card">
-            <PriceMap
-              points={points}
-              lines={lines}
-              stubs={layout.stubs}
-              onSelectSubstation={(id) => selectSubstation(id)}
-              onSelectFeeder={selectFeeder}
-              onClearSelection={clearSelection}
-              focus={focus}
-            />
-            <div className="map-legend" aria-label="Local price divided by wholesale">
-              <span>0.5×</span>
-              <i className="ratio-scale" />
-              <span>2×</span>
-              <span className="scale-caption">Local ÷ wholesale</span>
-            </div>
-          </div>
-          <figcaption className="figure-caption">
-            <strong>Figure 1.</strong> Modelled local price relative to wholesale across Oxford LV feeders at the selected half-hour. Grey denotes no complete reading<span className="map-caption-detail">; street traces are indicative and are not SSEN cable routes</span><span className="map-caption-mobile">; traces are illustrative</span>.
-          </figcaption>
-        </figure>
-
-        <section className="comparison-panel" aria-labelledby="comparison-title">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">{scopeKind}</p>
-              <h2 id="comparison-title">Local vs wholesale price</h2>
-              <p className="scope-label">{scopeLabel}</p>
-            </div>
-            <div className="chart-key" aria-label="Chart legend">
-              <span><i className="key-line local" />{feeder ? "Modelled local" : "Average local"}</span>
-              <span><i className="key-line wholesale" />Wholesale</span>
-            </div>
-          </div>
-          <figure>
-            <div className="chart-card">
-              <SeriesChart
-                cursor={index}
-                ariaLabel={`${feeder ? "Modelled" : "Average"} local and wholesale price for ${scopeLabel} over 24 hours`}
-                yAxis={{ label: "Price (£/kWh)", format: "price" }}
-                series={[
-                  { values: localSeries.map((value) => (value === null ? null : value / 1000)), color: "var(--ink)", width: 2.5 },
-                  { values: wholesaleSeries.map((value) => (value === null ? null : value / 1000)), color: "var(--reference)", width: 2, dash: "7 6" },
-                ]}
-              />
-              <div className="chart-axis" aria-hidden="true"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span></div>
-            </div>
-            <figcaption className="figure-caption">
-              <strong>Figure 2.</strong> Half-hourly modelled local and wholesale electricity prices for {scopeLabel} over the observed 24-hour period.
-            </figcaption>
-          </figure>
-        </section>
-
-        <dl className="hero-metrics">
-          <Metric
-            label="Average local price delta"
-            value={instant.localSwingGbpPerMwh === null ? "–" : formatKwhPrice(instant.localSwingGbpPerMwh)}
-            unit={instant.localSwingGbpPerMwh === null ? undefined : "/kWh"}
-          />
-          <Metric
-            label="Wholesale price"
-            value={instant.wholesaleGbpPerMwh === null ? "–" : formatKwhPrice(instant.wholesaleGbpPerMwh)}
-            unit={instant.wholesaleGbpPerMwh === null ? undefined : "/kWh"}
-          />
-          <Metric label="Average local ÷ wholesale" value={instant.ratio === null ? "–" : formatRatio(instant.ratio)} />
-          <Metric
-            label="Max premium feeder"
-            value={extremes.premium ? formatKwhPrice(extremes.premium.delta, true) : "–"}
-            unit={extremes.premium ? "/kWh" : undefined}
-            detail={extremes.premium?.feeder.substationName ?? "No positive delta"}
-            onDetailClick={
-              extremes.premium
-                ? () => selectFeeder(extremes.premium!.feeder.substationId, extremes.premium!.feeder.id, true)
-                : undefined
-            }
-            tone="premium"
-          />
-          <Metric
-            label="Max discount feeder"
-            value={extremes.discount ? formatKwhPrice(extremes.discount.delta, true) : "–"}
-            unit={extremes.discount ? "/kWh" : undefined}
-            detail={extremes.discount?.feeder.substationName ?? "No negative delta"}
-            onDetailClick={
-              extremes.discount
-                ? () => selectFeeder(extremes.discount!.feeder.substationId, extremes.discount!.feeder.id, true)
-                : undefined
-            }
-            tone="discount"
-          />
-        </dl>
-
-        <div className="map-follow">
-          <TimeScrubber
-            index={index}
-            clockLength={clock.length}
-            cursorTime={cursorTime}
-            playing={playing}
-            onChange={seek}
-            onTogglePlay={() => setPlaying((value) => !value)}
-          />
-          <SubstationChooser
-            groups={groups}
-            selectedId={substation?.id ?? null}
-            onSelect={(id) => selectSubstation(id, true)}
-            onClear={clearSelection}
-          />
-        </div>
-      </section>
-
-      {substation ? <section className="section feeder-section" aria-labelledby="feeder-title">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">Feeder-level analysis</p>
-            <h2 id="feeder-title">Feeder detail</h2>
-          </div>
-          <p className="section-note">Select a feeder to see what drives its modelled price.</p>
-        </div>
-        <div className="feeder-layout">
-          <nav className="feeder-nav" aria-label={`Feeders at ${substation.name}`}>
-            <p className="nav-title">{substation.name}</p>
-            {substation.feeders.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                className={item.id === feeder?.id ? "feeder-button on" : "feeder-button"}
-                onClick={() => setFeederId(item.id)}
-                aria-pressed={item.id === feeder?.id}
-              >
-                <span>{item.name}<small>{item.quality.completeBuckets} of {item.quality.expectedBuckets} readings</small></span>
-                <span className={`quality ${item.quality.status}`}>{Math.round(item.quality.completeness * 100)}%</span>
-              </button>
-            ))}
-          </nav>
-
-          {feeder ? <article className="feeder-detail">
-            <div className="feeder-head">
-              <div>
-                <p className="eyebrow">{substation.name}</p>
-                <h3>{feeder.name}</h3>
-              </div>
-              <span className={`quality-pill ${feeder.quality.status}`}>{qualityLabel(feeder)} · {formatPct(feeder.quality.completeness)}</span>
-            </div>
-
-            <div className="now-card">
-              <div>
-                <p className="now-label">At {cursorTime ? formatTime(cursorTime) : "–"}</p>
-                <p className="now-price" style={{ color: stateColor }}>{sample ? formatKwhPrice(sample.local) : "–"}<small>/kWh</small></p>
-                <p className="state" style={{ color: stateColor }}>{state}</p>
-              </div>
-              {sample ? (
-                <dl className="detail-metrics">
-                  <Metric label="Wholesale" value={formatKwhPrice(sample.wholesale)} unit="/kWh" />
-                  <Metric label="Local add-on" value={formatKwhPrice(sample.addon, true)} unit="/kWh" />
-                  <Metric label="Signed power" value={formatKw(sample.pKw)} />
-                  <Metric label="Applicable limit" value={formatKw(sample.limitKw)} />
-                  <Metric label="Ramp threshold" value={formatKw(sample.rampStartKw)} />
-                  <Metric label="Modelled loading" value={formatPct(sample.loading)} />
-                  <Metric label="Direction" value={sample.direction === "export" ? "Export" : sample.direction === "import" ? "Import" : "Neutral"} />
-                </dl>
-              ) : (
-                <p className="missing-reading">All three power phases were not available for this half-hour, so no value has been estimated.</p>
-              )}
-            </div>
-
-            <figure className="power-chart">
-              <div className="chart-title-row">
-                <h4>Signed feeder power</h4>
-                <div className="chart-key"><span><i className="key-line" style={{ background: stateColor }} />Observed</span><span><i className="key-line target" />Ramp threshold</span></div>
-              </div>
-              <SeriesChart
-                cursor={index}
-                ariaLabel={`Signed feeder power and constraint ramp threshold for ${substation.name} ${feeder.name}`}
-                series={[
-                  { values: selectedClockSamples.map((item) => item?.pKw ?? null), color: stateColor, width: 2.5 },
-                  { values: selectedClockSamples.map((item) => item ? (item.pKw < 0 ? -item.rampStartKw : item.rampStartKw) : null), color: "var(--reference)", width: 2, dash: "7 6" },
-                ]}
-              />
-              <figcaption className="figure-caption">
-                <strong>Figure 3.</strong> Observed signed feeder power against the modelled constraint ramp threshold. Negative values denote export.
-              </figcaption>
-            </figure>
-          </article> : (
-            <article className="feeder-detail selection-empty">
-              <p>Select an LV feeder to see its half-hourly power, loading, and local price detail.</p>
-            </article>
-          )}
-        </div>
-      </section> : null}
-
-      <section className="section disclosures" aria-label="Method and assumptions">
-        <details>
-          <summary>Interpretation</summary>
-          <p>
-            Positive local add-ons rise as import approaches the feeder’s applicable limit.
-            Negative add-ons rise in magnitude as reverse flow approaches its separate assumed export limit.
-            “No network adjustment” means the add-on is within 5% of the model cap. The map draws a line from each
-            substation along nearby streets, coloured by that feeder’s local price divided by wholesale.
-            Those paths are not SSEN cable routes. Grey means no reading for that half-hour.
-            Max premium and discount identify the feeders furthest above and below wholesale at the selected
-            half-hour, across either the whole network or the selected substation.
-          </p>
-        </details>
-        <details>
-          <summary>Model specification</summary>
-          <p>
-            Where no published limit is available, a feeder uses an explicit {snapshot.ratingAssumptionAmps} A,
-            400 V three-phase import assumption. The import add-on ramps from 85% of the limit and reaches {formatKwhPrice(cap)}/kWh
-            at 100%. Export uses a separate assumed 100 kW limit and £40/kVA cost. The import cap is derived from £{snapshot.parameters.gbpPerKva}/kVA,
-            a {snapshot.parameters.lifeYears}-year life, {(snapshot.parameters.discountRate * 100).toFixed(0)}% discount rate,
-            and {snapshot.parameters.bindingHoursPerYear} binding hours per year.
-          </p>
-        </details>
-        <details>
-          <summary>Data quality and limitations</summary>
-          <p>
-            NeRDA readings are averaged into 30-minute buckets for each phase, then all three phases are
-            summed. A bucket is omitted if any phase is missing; gaps are not interpolated. This map
-            includes all {feeders.length} selected Oxford feeders; {snapshot.comparison.feederCount} have at least 50% complete
-            buckets for the shown day. Feeders without a reading at the selected time are grey. Average coverage across the
-            mapped feeders is {formatPct(averageCoverage)}.
-          </p>
-          <p>
-            The shown day was selected from the previous 12 complete months by comparing constraint pressure on days
-            where at least 75% of feeders met their own cadence-adjusted coverage threshold. The selected day covered {formatPct(snapshot.constraintModel?.search.coverage ?? 0)} of feeders.
-          </p>
-          <p>Current measurements are not used because the returned series could not yet be validated consistently as amperage magnitude.</p>
-        </details>
-        {feeder && substation ? <details>
-          <summary>View selected feeder data</summary>
-          <div className="table-wrap">
-            <table>
-              <caption>{substation.name} {feeder.name}, complete half-hour readings</caption>
-              <thead><tr><th>Time</th><th>Power</th><th>Limit</th><th>Add-on</th><th>Wholesale</th><th>Local</th></tr></thead>
-              <tbody>
-                {feeder.samples.map((item) => (
-                  <tr key={item.t}>
-                    <td>{formatStamp(item.t)}</td><td>{formatKw(item.pKw)}</td><td>{formatKw(item.limitKw)}</td>
-                    <td>{formatKwhPrice(item.addon, true)}</td><td>{formatKwhPrice(item.wholesale)}</td><td>{formatKwhPrice(item.local)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </details> : null}
-      </section>
-
-      <footer className="footer section">
-        <p>Contains BMRS data © Elexon Limited. Feeder state derived locally from SSEN NeRDA. Street lines © OpenStreetMap contributors.</p>
-        <p>This is an experimental model, not an SSEN tariff, operational instruction, or forecast.</p>
-      </footer>
-    </main>
-  );
-}
-
-function SubstationChooser({
-  groups,
-  selectedId,
-  onSelect,
-  onClear,
-}: {
-  groups: Array<{ id: string; name: string }>;
-  selectedId: string | null;
-  onSelect: (id: string) => void;
-  onClear: () => void;
-}) {
-  const [query, setQuery] = useState("");
-  if (groups.length <= 8) {
-    return (
-      <div className="location-switcher" role="group" aria-label="Choose a substation">
-        <button
-          type="button"
-          className={selectedId === null ? "location on" : "location"}
-          onClick={onClear}
-          aria-pressed={selectedId === null}
-        >
-          Whole network
-        </button>
-        {groups.map((group) => (
-          <button
-            key={group.id}
-            type="button"
-            className={group.id === selectedId ? "location on" : "location"}
-            onClick={() => onSelect(group.id)}
-            aria-pressed={group.id === selectedId}
-          >
-            {group.name}
-          </button>
-        ))}
-      </div>
-    );
-  }
-
-  const needle = query.trim().toLowerCase();
-  const matches = groups.filter((group) => group.name.toLowerCase().includes(needle));
-  return (
-    <div className="substation-search">
-      <label>
-        <span>{groups.length} substations</span>
-        <input
-          value={query}
-          placeholder="Search"
-          aria-label="Search substations"
-          onChange={(event) => setQuery(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" && matches[0]) onSelect(matches[0].id);
-          }}
-        />
-      </label>
-      <div className="substation-results" role="listbox" aria-label="Substations">
-        {!needle ? (
-          <button
-            type="button"
-            role="option"
-            aria-selected={selectedId === null}
-            className={selectedId === null ? "location on" : "location"}
-            onClick={() => {
-              setQuery("");
-              onClear();
-            }}
-          >
-            Whole network
-          </button>
-        ) : null}
-        {matches.map((group) => (
-          <button
-            key={group.id}
-            type="button"
-            role="option"
-            aria-selected={group.id === selectedId}
-            className={group.id === selectedId ? "location on" : "location"}
-            onClick={() => {
-              setQuery("");
-              onSelect(group.id);
-            }}
-          >
-            {group.name}
-          </button>
-        ))}
-      </div>
-      {matches.length === 0 ? <p className="substation-empty">No substation matches that name.</p> : null}
-    </div>
-  );
-}
-
-function TimeScrubber({
-  index,
-  clockLength,
-  cursorTime,
-  playing,
-  onChange,
-  onTogglePlay,
-}: {
-  index: number;
-  clockLength: number;
-  cursorTime: string | undefined;
-  playing: boolean;
-  onChange: (index: number) => void;
-  onTogglePlay: () => void;
-}) {
-  return (
-    <div className="time-control">
-      <div>
-        <button type="button" className="play" aria-pressed={playing} onClick={onTogglePlay}>
-          {playing ? "Pause" : "Play"}
-        </button>
-        <span>30 min every 3 s</span>
-        <strong>{cursorTime ? formatStamp(cursorTime) : "–"}</strong>
-      </div>
-      <input
-        type="range"
-        min={0}
-        max={Math.max(0, clockLength - 1)}
-        value={index}
-        aria-label="Time of day"
-        aria-valuetext={cursorTime ? formatStamp(cursorTime) : ""}
-        onChange={(event) => onChange(Number(event.target.value))}
-      />
-    </div>
-  );
-}
-
-function Metric({
-  label,
-  value,
-  unit,
-  detail,
-  onDetailClick,
-  tone,
-  compact = false,
-}: {
-  label: string;
-  value: string;
-  unit?: string;
-  detail?: string;
-  onDetailClick?: () => void;
-  tone?: "premium" | "discount";
-  compact?: boolean;
-}) {
-  return (
-    <div className={`metric${tone ? ` ${tone}` : ""}${compact ? " compact" : ""}`}>
-      <dt>{label}</dt>
-      <dd>{value}{unit ? <small>{unit}</small> : null}</dd>
-      {detail ? (
-        onDetailClick ? (
-          <button type="button" className="metric-detail metric-link" onClick={onDetailClick}>{detail}</button>
-        ) : (
-          <p className="metric-detail">{detail}</p>
-        )
-      ) : null}
-    </div>
-  );
+  const matching = feeders.filter((item) => (item.substationName + " " + item.name).toLowerCase().includes(query.toLowerCase()));
+  const transformer = transformerFor(group.feeders, snapshot);
+  const transformerRating = transformer?.status === "published" ? transformer.ratingKva : null;
+  const observed = clock.map((t) => monitoredPowerAt(group.feeders, t));
+  const futureTransformer = snapshot.annualCapacity?.substations[group.id];
+  const reference = clock.map(() => scenario === "long-term" ? futureTransformer?.status === "ready" ? futureTransformer.assetKw : null : transformerRating);
+  const responsive = clock.map((_, index) => {
+    if (group!.feeders.some(item => !simulations.get(item.id)!.sizingAvailable)) return null;
+    const rows = group!.feeders.map(item => simulations.get(item.id)!.rows[index]);
+    return rows.every(row => row !== null) ? rows.reduce((sum, row) => sum + (enabled ? row!.net : row!.baseline), 0) : null;
+  });
+  const baselineLimitCount = feeders.filter((item) => (simulations.get(item.id)!.baselinePeak ?? 0) > simulations.get(item.id)!.referenceImportKw).length;
+  const netLimitCount = feeders.filter((item) => simulations.get(item.id)!.sizingAvailable && ((enabled ? simulations.get(item.id)!.netPeak : simulations.get(item.id)!.baselinePeak) ?? 0) > simulations.get(item.id)!.importKw).length;
+  return <main className="story">
+    <header className="site-header"><a className="brand" href="#top">Streetprice <span>/ Oxford</span></a><nav aria-label="Page sections"><a href="#feeder-story">The response</a><a href="#network">The network</a><a href="#money-title">The economics</a></nav><a className="social-link" href="https://x.com/dootonline" target="_blank" rel="noreferrer" aria-label="Doot Online on X">↗</a></header>
+    <ScenarioControls scenario={scenario} onScenario={setScenario} clock={clock} cursor={cursor} onSeek={value => { setCursor(value); setMapMode("time"); }} batteryShare={batteryShare} onBatteryShare={setBatteryShare} />
+    <section className="intro section" id="top"><h1>Reducing distribution network costs by x100–1000 with price signals</h1><p className="intro-summary">Distribution network costs are predominantly made up of fixed cost assets that must be over-sized for peak flows. With the advent of home batteries and VPPs becoming ubiquitous, power flows can be smoothed downstream of LV feeders &amp; substations with simple price signals. On the long-run, I propose that this will reduce distribution network costs &amp; capex 100-1000x.</p><p className="model-provenance"><span className="live-dot" />Real Oxford feeder readings · simulated battery response · assumed feeder limits</p>{snapshot.source === "fixture" ? <p className="data-banner">The historical snapshot is unavailable. These readings are a synthetic example.</p> : null}</section>
+    <StoryHero feeder={feeder} annualHistory={snapshot.annualCapacity?.feeders[feeder.id]} sizing={snapshot.sizing?.feeders[feeder.id]} worstDay={snapshot.annualCapacity?.feeders[feeder.id]?.worstDay} annualCoverage={snapshot.annualCapacity?.feeders[feeder.id]?.coverage} result={result} config={config} parameters={snapshot.parameters} clock={clock} cursor={cursor} scenario={scenario} historyWindow={snapshot.annualCapacity?.window} windowLabel={snapshot.windowMode === "latest-available-24h" ? "Latest available 24h" : snapshot.windowMode === "previous-24h" ? "Previous 24h" : "Stored 24h"} batteryShare={batteryShare} onBatteryShare={setBatteryShare} onSeek={setCursor} />
+    <section className="section narrative-section network-section" id="network" aria-labelledby="network-title">
+      <div className="section-heading"><div><p className="eyebrow">02 / The Oxford network</p><h2 id="network-title">Oxford feeder loading</h2><p className="section-lede">Select a feeder to view its daily loading.</p></div><p className="network-count">187 feeders<br /><span>85 substations</span></p></div>
+      <div className="map-toolbar"><div className="segmented" aria-label="Map loading time"><button aria-pressed={mapMode === "peak"} onClick={() => setMapMode("peak")}>Day’s peak</button><button aria-pressed={mapMode === "time"} onClick={() => setMapMode("time")}>Selected time</button></div><div className="segmented" aria-label="Map layer"><button aria-pressed={mapLayer === "loading"} onClick={() => setMapLayer("loading")}>Loading</button><button aria-pressed={mapLayer === "value"} onClick={() => setMapLayer("value")}>Flexibility value</button></div></div>
+      <div className="network-grid"><figure className="map-column"><div className="map-card"><PriceMap points={points} lines={lines} stubs={layout.stubs} focus={focus} onSelectSubstation={(id) => { const chosen = groups.find((item) => item.id === id); if (chosen) selectFeeder(chosen.feeders[0].id); }} onSelectFeeder={(_substation, id) => selectFeeder(id)} onClearSelection={() => selectFeeder(defaultFeeder(feeders).id)} /><div className="map-legend">{mapLayer === "loading" ? <><span>Export 100%</span><i className="ratio-scale" /><span>Import 100%</span><span className="scale-caption">Grey = zero flow</span></> : <><span>0p</span><i className="value-scale" /><span>10p/kWh+</span></>}</div></div><figcaption className="figure-caption">{mapLayer === "loading" ? (mapMode === "peak" ? "Peak loading" : "Selected-time loading") + (scenario === "long-term" ? " · 12-month daily-peak sizing." : enabled ? " · simulated batteries." : " · no batteries.") : "Illustrative energy-only VPP tariff (p/kWh); grey = annual sizing unavailable."} Assumed limits; illustrative street traces.</figcaption><TimeSlider clock={clock} cursor={cursor} label="Map time" onSeek={(value) => { setCursor(value); setMapMode("time"); }} /></figure>
+        <aside className="network-panel"><p className="eyebrow">Choose a feeder</p><label className="search-label">Substation or street<input type="search" aria-label="Search feeders" placeholder="Search Oxford feeders" value={query} onChange={(event) => setQuery(event.target.value)} /></label><div className="feeder-picker" role="listbox" aria-label="Oxford feeders">{matching.map((item) => <button key={item.id} type="button" role="option" aria-selected={feeder.id === item.id} onClick={() => selectFeeder(item.id, true)}><span>{item.substationName}<small>{item.name}</small></span><span>{!simulations.get(item.id)!.sizingAvailable ? "No history" : simulations.get(item.id)!.baselinePeak === null ? "No data" : formatPct(((enabled ? simulations.get(item.id)!.netPeak : simulations.get(item.id)!.baselinePeak) ?? 0) / simulations.get(item.id)!.importKw)}</span></button>)}{matching.length === 0 ? <p>No matching feeders.</p> : null}</div><div className="network-result"><p><strong>{baselineLimitCount} → {scenario === "long-term" && !feeders.some(item => simulations.get(item.id)!.sizingAvailable) ? "—" : netLimitCount}</strong> feeders exceed the assumed import limit</p><small>{homes} simulated battery homes per feeder; available readings only.{scenario === "long-term" ? ` Annual sizing available for ${feeders.filter(item => simulations.get(item.id)!.sizingAvailable).length} / ${feeders.length}.` : ""}</small></div><a className="back-to-story" href="#feeder-story">Explore {feeder.substationName} {feeder.name} ↑</a></aside></div>
+    </section>
+    <SizingEconomics sizing={snapshot.sizing?.feeders[feeder.id]} homes={enabled ? homes : 0} parameters={snapshot.parameters} feeder={feeder} />
+    <section className="section narrative-section technical-section" aria-labelledby="technical-title"><h2 id="technical-title">Model assumptions</h2>
+      <details><summary>Feeder sizing and battery dispatch</summary><p>The proposed feeder capacity is recalculated from the recorded 12 months for the selected number of battery homes. The annual feasibility test carries battery charge between recorded half-hours and seeks the smallest thermal capacity that can serve observed import and export, assuming 10 kW / 25 kWh per home and 95% one-way efficiency. The 24-hour chart dispatches only above that proposed limit.</p><p>The illustrative energy-only tariff equals annualised marginal asset cost per kW divided by the recorded hours requiring that marginal kW of response. There is no availability payment or separate asset resizing cost. Battery ownership, charging energy, degradation, VPP margin and willingness to participate are not priced; this is not a live SSEN tariff. Missing load intervals and network engineering limits prevent this result from being a certified feeder design.</p></details>
+      <details><summary>Shared transformer constraint at {group.name}</summary><p>{transformerRating !== null ? "Published transformer rating: " + transformerRating.toLocaleString() + " kVA (unity power factor assumed)." : "The transformer rating is missing or conflicting; no reference has been invented."} Dashed grey is observed power; the solid trace applies the selected battery scenario to each monitored feeder. Long-term mode uses the annual daily-peak size of the concurrent monitored-feeder sum; it is not a whole-substation replacement design. This is shared by outgoing feeders, not allocated equally between them. The trace sums monitored feeders only, excludes reactive power and is not total transformer utilisation or export permission. {scenario === "long-term" ? `Annual monitored-cohort reference: ${futureTransformer?.status === "ready" ? futureTransformer.assetKw?.toFixed(1) + " kW" : "unavailable"}.` : "The reference line uses the published rating at unity power factor."}</p><SeriesChart cursor={cursor} ariaLabel="Monitored substation power and selected capacity reference" yAxis={{ label: "Power (kW), PF = 1 reference", format: "number" }} bands={[{lower:reference.map(v=>v===null?null:v*.8),upper:reference,color:"rgba(185,66,63,.12)"}]} series={[{values:observed,color:"#8d98a3",width:1.5,dash:"5 5"},{values:responsive,color:enabled?"#1e7f66":"var(--ink)",width:2},{values:reference,color:"var(--reference)",width:1.5,dash:"5 5"}]} /><p>SSEN’s May 2026 rating/loading workbook and October 2026 load-model publication supply usable ratings for 79 sites; five disagreements and one missing site remain unresolved.</p></details>
+      <details><summary>Data coverage and the selected day</summary><p>Display window: {formatStamp(snapshot.window.start)}–{formatStamp(snapshot.window.end)}. {snapshot.windowMode === "previous-24h" ? "The previous 24 hours at ingestion, ending at the latest completed half-hour." : snapshot.windowMode === "latest-available-24h" ? "Latest available 24 hours; SSEN returned no newer readings at ingestion." : "Stored historical window; refresh ingestion for the previous 24 hours."} Data through {formatStamp(snapshot.window.dataThrough)}. Real NeRDA power is averaged into half-hours. All three phases must be available; missing readings remain gaps. This feeder has {feeder.samples.length} of {clock.length} readings.</p><p>The map retains 187 feeders and 85 substations. Day-peak colours use available readings only; feeders with no readings are pale grey. This monitored cohort is not the entire Oxford network. Neither transformer nameplates nor observed demand maxima establish an individual feeder’s actual rating.</p></details>
+      <details><summary>Economic assumptions and the long-run hypothesis</summary><p>The annual cost comparison assumes a feeder built at the calculated size from the start. Installed capacity is priced at £{snapshot.parameters.gbpPerKva}/kVA over {snapshot.parameters.lifeYears} years at {snapshot.parameters.discountRate * 100}% discount rate. Only dispatched battery energy receives a VPP payment. No extra cost is assigned to changing asset size.</p><p>Annual sizing uses the observed half-hours, with gaps excluded. The result assumes participating batteries can be controlled whenever needed; this tariff may not induce participation. Voltage, fault levels, phase imbalance, outages, demand growth, battery costs and incomplete monitoring remain outside the model. The proposed 100–1,000× reduction is a hypothesis, not a result established by these calculations.</p></details>
+      <details><summary>Inspect the selected feeder’s readings</summary><div className="table-wrap"><table><caption>{feeder.substationName} {feeder.name} · real baseline / simulated response</caption><thead><tr><th>Time</th><th>Baseline kW</th><th>{scenario === "long-term" ? "Long-term kW" : enabled ? "With batteries kW" : "No battery kW"}</th><th>Battery kW</th><th>Stored kWh</th></tr></thead><tbody>{result.rows.filter((row) => row !== null).map((row) => <tr key={row.t}><td>{formatStamp(row.t)}</td><td>{row.baseline.toFixed(1)}</td><td>{(enabled ? row.net : row.baseline).toFixed(1)}</td><td>{(enabled ? row.batteryKw : 0).toFixed(1)}</td><td>{enabled ? row.storedKwh.toFixed(1) : "—"}</td></tr>)}</tbody></table></div></details>
+    </section>
+    <footer className="footer section"><p>SSEN NeRDA observations · Elexon wholesale data · OpenStreetMap street traces.</p><p>Experimental model. Not a tariff, operating instruction or guaranteed saving.</p></footer>
+  </main>;
 }
