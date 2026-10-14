@@ -3,14 +3,22 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.dirname(fileURLToPath(import.meta.url));
+const snapshotFiles = [
+  "./data/snapshot.json",
+  "./data/annual-capacity.json",
+  "./data/sizing-curves.json",
+  "./data/constraint-model.json",
+  "./data/constraint-search-result.json",
+];
 
 const nextConfig: NextConfig = {
   turbopack: {
     root,
   },
-  // loadSnapshot reads this path at runtime. The dynamic path is not traced on its own.
+  // Include data read from disk by page revalidation and the snapshot API.
   outputFileTracingIncludes: {
-    "/api/snapshot": ["./data/snapshot.json", "./data/constraint-model.json", "./data/constraint-search-result.json"],
+    "/": snapshotFiles,
+    "/api/snapshot": snapshotFiles,
   },
 };
 

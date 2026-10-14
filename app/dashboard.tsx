@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { PriceMap } from "@/components/price-map";
+import { useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { StoryHero } from "@/components/model-story";
 import { ScenarioControls } from "@/components/scenario-controls";
 import { batteryDefaults, batteryHomesForShare, simulateFlexibility, type ViewScenario } from "@/lib/flexibility";
@@ -9,64 +9,50 @@ import { capacityColor } from "@/lib/color";
 import { defaultScenario } from "@/lib/constraint";
 import { formatTime } from "@/lib/format";
 import { substationsOf } from "@/lib/group";
-import { streetLayout } from "@/lib/street-trace";
-import type { Feeder, Snapshot } from "@/lib/types";
+import type { DashboardSnapshot, Feeder } from "@/lib/types";
 import { openingFeeder } from "@/lib/worst-day";
 
-function clockOf(snapshot: Snapshot) {
+const PriceMap = dynamic(() => import("@/components/price-map").then(module => module.PriceMap), {
+  ssr: false,
+  loading: () => <div className="map-loading">Loading the map…</div>,
+});
+
+function clockOf(snapshot: DashboardSnapshot) {
   const start = Date.parse(snapshot.window.start);
   const end = Date.parse(snapshot.window.end);
   return Array.from({ length: Math.round((end - start) / 1800000) }, (_, index) => new Date(start + index * 1800000).toISOString());
 }
 
-export function Dashboard() {
-  const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
-  const [error, setError] = useState(false);
-  const [feederId, setFeederId] = useState<string | null>(null);
-  const [cursor, setCursor] = useState(0);
-  const [scenario, setScenario] = useState<ViewScenario>("none");
+export function Dashboard({ snapshot }: { snapshot: DashboardSnapshot }) {
+  const feeders = snapshot.feeders;
+  const clock = useMemo(() => clockOf(snapshot), [snapshot]);
+  const [feederId, setFeederId] = useState(() => openingFeeder(feeders, snapshot.annualCapacity, snapshot.ratingAssumptionAmps, clock).id);
+  const [cursor, setCursor] = useState(Math.max(0, clock.length - 1));
+  const [scenario, setScenario] = useState<ViewScenario>("battery");
   const [batteryShare, setBatteryShare] = useState(33);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetch("/api/snapshot", { signal: controller.signal }).then(async response => {
-      if (!response.ok) throw new Error("Snapshot unavailable");
-      return await response.json() as Snapshot;
-    }).then(data => {
-      if (controller.signal.aborted) return;
-      setSnapshot(data);
-      setFeederId(openingFeeder(data.feeders, data.annualCapacity, data.ratingAssumptionAmps, clockOf(data)).id);
-      setCursor(Math.max(0, clockOf(data).length - 1));
-    }).catch(() => { if (!controller.signal.aborted) setError(true); });
-    return () => controller.abort();
-  }, []);
-
-  const feeders = useMemo(() => snapshot?.feeders ?? [], [snapshot]);
-  const clock = useMemo(() => snapshot ? clockOf(snapshot) : [], [snapshot]);
   const groups = useMemo(() => substationsOf(feeders), [feeders]);
-  const layout = useMemo(() => snapshot?.streets ?? streetLayout(feeders), [snapshot, feeders]);
+  const layout = snapshot.streets;
   const config = useMemo(() => ({ ...batteryDefaults, households: batteryHomesForShare(batteryShare) }), [batteryShare]);
   const simulations = useMemo(() => new Map(feeders.map(feeder => {
-    const point = snapshot?.sizing?.feeders[feeder.id]?.points[config.households];
-    const annual = snapshot?.annualCapacity?.feeders[feeder.id];
-    const target = scenario === "battery" && point?.capacityKw != null && annual?.status === "ready"
-      ? { ...annual, assetKw: point.capacityKw } : undefined;
-    return [feeder.id, simulateFlexibility(feeder, clock, config, snapshot?.ratingAssumptionAmps, target, "limit")] as const;
+    const capacityKw = snapshot.capacities[feeder.id]?.[config.households];
+    const annual = snapshot.annualCapacity?.feeders[feeder.id];
+    const target = scenario === "battery" && capacityKw != null && annual?.status === "ready"
+      ? { ...annual, assetKw: capacityKw } : undefined;
+    return [feeder.id, simulateFlexibility(feeder, clock, config, snapshot.ratingAssumptionAmps, target, "limit")] as const;
   })), [feeders, clock, config, snapshot, scenario]);
 
   const feeder = feeders.find(item => item.id === feederId) ?? feeders[0];
   const result = feeder ? simulations.get(feeder.id) : undefined;
-  if (error) return <main className="status"><h1>The Oxford snapshot could not be loaded.</h1><p>Please reload to try again.</p></main>;
-  if (!snapshot || !feeder || !result || !clock.length) return <main className="status"><h1>Loading the Oxford model…</h1></main>;
+  if (!feeder || !result || !clock.length) return <main className="status"><h1>The Oxford snapshot has no usable feeder data.</h1></main>;
 
   // A map percentage always means loading against today's assumed directional limit.
   function loading(item: Feeder) {
     const simulation = simulations.get(item.id)!;
     const row = simulation.rows[cursor];
     if (!row) return null;
-    const annual = snapshot!.annualCapacity?.feeders[item.id];
-    const point = snapshot!.sizing?.feeders[item.id]?.points[config.households];
-    const power = scenario === "battery" && point?.capacityKw != null && annual?.status === "ready" ? row.net : row.baseline;
+    const annual = snapshot.annualCapacity?.feeders[item.id];
+    const capacityKw = snapshot.capacities[item.id]?.[config.households];
+    const power = scenario === "battery" && capacityKw != null && annual?.status === "ready" ? row.net : row.baseline;
     return power < 0 ? power / defaultScenario.exportKw! : power / simulation.referenceImportKw;
   }
   function color(item: Feeder) {
@@ -93,12 +79,12 @@ export function Dashboard() {
 
   return <main className="story">
     <section className="intro section">
-      <h1>Reducing distribution network costs by x100–1000 with price signals</h1>
-      <p className="intro-summary">Distribution network costs are predominantly made up of fixed cost assets that must be over-sized for peak flows. With the advent of home batteries and VPPs becoming ubiquitous, power flows can be smoothed downstream of LV feeders &amp; substations with simple price signals. On the long-run, I propose that this will reduce distribution network costs &amp; capex 100-1000x.</p>
+      <h1>Reducing distribution network costs by 45% with price signals</h1>
+      <p className="intro-summary">Distribution network costs are predominantly made up of fixed cost assets that must be over-sized for peak flows. With the advent of home batteries and VPPs becoming ubiquitous, power flows can be smoothed downstream of LV feeders &amp; substations with simple price signals. On the long-run, I propose that this will reduce distribution network costs &amp; capex by 45%.</p>
     </section>
     <ScenarioControls scenario={scenario} onScenario={setScenario} clock={clock} cursor={cursor} onSeek={setCursor} batteryShare={batteryShare} onBatteryShare={setBatteryShare} />
     <StoryHero feeder={feeder} worstDay={snapshot.annualCapacity?.feeders[feeder.id]?.worstDay}
-      annual={snapshot.annualCapacity?.feeders[feeder.id]} sizing={snapshot.sizing?.feeders[feeder.id]}
+      annual={snapshot.annualCapacity?.feeders[feeder.id]} proposedCapacityKw={snapshot.capacities[feeder.id]?.[config.households] ?? null}
       result={result} config={config} clock={clock} cursor={cursor} scenario={scenario} />
     <section className="section network-section" aria-labelledby="map-title">
       <p className="eyebrow">Heat map</p>

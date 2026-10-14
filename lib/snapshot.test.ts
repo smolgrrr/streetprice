@@ -1,8 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { loadSnapshot } from "./snapshot";
+import { dashboardSnapshot, loadSnapshot } from "./snapshot";
 import { annualWindow } from "./annual-capacity";
 
 describe("committed Oxford snapshot", () => {
+  it("sends a compact dashboard without losing readings, gaps or battery capacities", async () => {
+    const snapshot = await loadSnapshot();
+    const compact = dashboardSnapshot(snapshot);
+    expect(compact.feeders).toEqual(snapshot.feeders);
+    expect(compact.streets).toEqual(snapshot.streets);
+    expect(compact.feeders).toHaveLength(187);
+    for (const feeder of snapshot.feeders) {
+      expect(compact.annualCapacity?.feeders[feeder.id]?.worstDay).toEqual(snapshot.annualCapacity?.feeders[feeder.id]?.worstDay);
+      expect(compact.annualCapacity?.feeders[feeder.id]?.status).toEqual(snapshot.annualCapacity?.feeders[feeder.id]?.status);
+      expect(compact.capacities[feeder.id]).toEqual(snapshot.sizing?.feeders[feeder.id]?.points.map(point => point.capacityKw));
+    }
+    expect(JSON.stringify(compact).length).toBeLessThan(JSON.stringify(snapshot).length * .5);
+  });
+
   it("packages a 24-hour window and complete Vercel map cohort", async () => {
     const snapshot = await loadSnapshot();
     expect(Date.parse(snapshot.window.end) - Date.parse(snapshot.window.start)).toBe(86_400_000);

@@ -1,9 +1,36 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { buildFixture } from "./fixture";
-import type { Snapshot } from "./types";
+import type { DashboardSnapshot, Snapshot } from "./types";
 import transformerRatings from "../data/transformer-ratings.json";
 import { annualWindow } from "./annual-capacity";
+import { streetLayout } from "./street-trace";
+
+export function dashboardSnapshot(snapshot: Snapshot): DashboardSnapshot {
+  const annual = snapshot.annualCapacity;
+  return {
+    feeders: snapshot.feeders,
+    window: snapshot.window,
+    ratingAssumptionAmps: snapshot.ratingAssumptionAmps,
+    streets: snapshot.streets ?? streetLayout(snapshot.feeders),
+    capacities: Object.fromEntries(Object.entries(snapshot.sizing?.feeders ?? {}).map(([id, curve]) =>
+      [id, curve.points.map(point => point.capacityKw)])),
+    annualCapacity: annual ? {
+      ...annual,
+      substations: {},
+      feeders: Object.fromEntries(Object.entries(annual.feeders).map(([id, stats]) => [id, {
+        status: stats.status,
+        assetKw: stats.assetKw,
+        meanDailyMaxImportKw: stats.meanDailyMaxImportKw,
+        meanDailyMaxExportKw: stats.meanDailyMaxExportKw,
+        coveredDays: stats.coveredDays,
+        totalDays: stats.totalDays,
+        coverage: stats.coverage,
+        worstDay: stats.worstDay,
+      }])),
+    } : undefined,
+  };
+}
 
 export async function loadSnapshot(): Promise<Snapshot> {
   const file = path.join(process.cwd(), "data", "snapshot.json");

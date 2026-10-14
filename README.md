@@ -4,6 +4,8 @@ A 24-hour feeder chart and loading heat map for SSEN low-voltage feeders across 
 
 The area is the Oxford box, latitude 51.70–51.82 and longitude −1.32 to −1.15. The production snapshot retains 187 feeders and 85 substations, including missing readings. The deployed site serves `data/snapshot.json`; if missing, it shows a labelled synthetic example.
 
+The title and chart are rendered into the initial page with Battery selected. The browser receives a compact snapshot containing the readings, worst-day traces and capacity curves needed by this page; the map loads separately. The page cache refreshes every five minutes to pick up newly ingested snapshots.
+
 ## Develop
 
 ```

@@ -2,13 +2,12 @@ import { SeriesChart } from "./charts";
 import { formatDate, formatKw, formatStamp, formatTime } from "@/lib/format";
 import type { BatteryScenario, FlexResult, ViewScenario } from "@/lib/flexibility";
 import type { AnnualCapacity, Feeder, WorstDay } from "@/lib/types";
-import type { FeederSizingCurve } from "@/lib/sizing-equilibrium";
 import { alignWorstDay, simulateWorstDay } from "@/lib/worst-day";
 
-export function StoryHero({ feeder, annual, sizing, worstDay, result, config, clock, cursor, scenario }: {
+export function StoryHero({ feeder, annual, proposedCapacityKw, worstDay, result, config, clock, cursor, scenario }: {
   feeder: Feeder;
   annual?: AnnualCapacity;
-  sizing?: FeederSizingCurve;
+  proposedCapacityKw: number | null;
   worstDay?: WorstDay | null;
   result: FlexResult;
   config: BatteryScenario;
@@ -16,7 +15,7 @@ export function StoryHero({ feeder, annual, sizing, worstDay, result, config, cl
   cursor: number;
   scenario: ViewScenario;
 }) {
-  const proposedKw = scenario === "battery" ? sizing?.points[config.households]?.capacityKw ?? null : null;
+  const proposedKw = scenario === "battery" ? proposedCapacityKw : null;
   const batteryReady = scenario === "battery" && annual?.status === "ready" && proposedKw !== null;
   const worstBaseline = alignWorstDay(worstDay, clock);
   const worstResponse = batteryReady && worstDay

@@ -138,3 +138,9 @@ export type CohortFeeder = {
   currentMeasurementIds: string[];
   currentLimitAmps: number | null;
 };
+
+/** Data needed to render and interact with the simplified dashboard. */
+export type DashboardSnapshot = Pick<Snapshot, "feeders" | "window" | "ratingAssumptionAmps" | "annualCapacity"> & {
+  streets: NonNullable<Snapshot["streets"]>;
+  capacities: Record<string, number[]>;
+};
