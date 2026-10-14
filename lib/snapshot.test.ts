@@ -13,6 +13,7 @@ describe("committed Oxford snapshot", () => {
       expect(compact.annualCapacity?.feeders[feeder.id]?.worstDay).toEqual(snapshot.annualCapacity?.feeders[feeder.id]?.worstDay);
       expect(compact.annualCapacity?.feeders[feeder.id]?.status).toEqual(snapshot.annualCapacity?.feeders[feeder.id]?.status);
       expect(compact.capacities[feeder.id]).toEqual(snapshot.sizing?.feeders[feeder.id]?.points.map(point => point.capacityKw));
+      expect(compact.tariffs[feeder.id]).toEqual(snapshot.sizing?.feeders[feeder.id]?.points.map(point => point.tariffGbpPerKwh));
     }
     expect(JSON.stringify(compact).length).toBeLessThan(JSON.stringify(snapshot).length * .5);
   });

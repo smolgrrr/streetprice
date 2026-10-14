@@ -85,6 +85,7 @@ export function Dashboard({ snapshot }: { snapshot: DashboardSnapshot }) {
     <ScenarioControls scenario={scenario} onScenario={setScenario} clock={clock} cursor={cursor} onSeek={setCursor} batteryShare={batteryShare} onBatteryShare={setBatteryShare} />
     <StoryHero feeder={feeder} worstDay={snapshot.annualCapacity?.feeders[feeder.id]?.worstDay}
       annual={snapshot.annualCapacity?.feeders[feeder.id]} proposedCapacityKw={snapshot.capacities[feeder.id]?.[config.households] ?? null}
+      localTariffGbpPerKwh={snapshot.tariffs[feeder.id]?.[config.households] ?? (config.households === 0 ? 0 : null)}
       result={result} config={config} clock={clock} cursor={cursor} scenario={scenario} />
     <section className="section network-section" aria-labelledby="map-title">
       <p className="eyebrow">Heat map</p>

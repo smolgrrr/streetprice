@@ -15,6 +15,8 @@ export function dashboardSnapshot(snapshot: Snapshot): DashboardSnapshot {
     streets: snapshot.streets ?? streetLayout(snapshot.feeders),
     capacities: Object.fromEntries(Object.entries(snapshot.sizing?.feeders ?? {}).map(([id, curve]) =>
       [id, curve.points.map(point => point.capacityKw)])),
+    tariffs: Object.fromEntries(Object.entries(snapshot.sizing?.feeders ?? {}).map(([id, curve]) =>
+      [id, curve.points.map(point => point.tariffGbpPerKwh)])),
     annualCapacity: annual ? {
       ...annual,
       substations: {},

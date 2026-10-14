@@ -1,6 +1,6 @@
 # Streetprice
 
-A 24-hour feeder chart and loading heat map for SSEN low-voltage feeders across Oxford. The site compares observed flow with a simulated home-battery response and a proposed feeder size.
+A 24-hour feeder chart, local/wholesale price comparison and loading heat map for SSEN low-voltage feeders across Oxford. The site compares observed flow with a simulated home-battery response and a proposed feeder size.
 
 The area is the Oxford box, latitude 51.70–51.82 and longitude −1.32 to −1.15. The production snapshot retains 187 feeders and 85 substations, including missing readings. The deployed site serves `data/snapshot.json`; if missing, it shows a labelled synthetic example.
 
@@ -32,6 +32,8 @@ npm run annual
 The same compact file preserves one curated worst-observed-day trace per feeder, selected by maximum import/export loading relative to today's assumed directional limits among days with ≥50% readings. Missing and ambiguous repeated DST times remain gaps. The initially selected feeder has adequate annual history and a peak nearest 100%; this selection is independent of the battery toggle. Batteries assume 10 kW / 25 kWh per home. Raw annual histories remain local and ignored by git.
 
 Figure 1 shows the selected feeder’s latest 24 hours and worst observed day. The battery toggle replaces those traces with simulated battery response targeting the proposed capacity at the selected adoption rate. The map shows selected-time loading against today’s assumed import/export limits in both modes; proposed capacity is never used as the map’s 100% reference. Tap a feeder on the map to change Figure 1. Battery ownership, charging cost, degradation, reliability, voltage and future growth are outside this illustration. Annual ingestion publishes compact outputs without publishing raw histories.
+
+Figure 1's price panel uses the same latest wholesale curve for both load days. Local price adds the annual energy-only VPP tariff above the selected capacity (and subtracts it for excess export), using demand before battery response. It follows wholesale in unconstrained intervals. The dashed trace represents the price signal under worst-day demand, rather than historical wholesale prices from that day.
 
 Substation statistics sum concurrent monitored feeder readings before taking maxima. They are not total transformer demand without full inventory coverage. The model retains its experimental price, battery and linear-cost assumptions.
 

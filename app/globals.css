@@ -40,6 +40,10 @@ figure { margin: 0; }
 .section-lede { margin: .6rem 0 1.5rem; color: var(--muted); font-size: .95rem; }
 .figure-heading { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .35rem 1rem; margin: 0 0 1rem; font-size: .86rem; }
 .figure-heading span { color: var(--muted); }
+.figure-charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: auto auto auto; gap: .7rem 1.8rem; }
+.figure-chart { min-width: 0; display: grid; grid-template-rows: subgrid; grid-row: span 3; }
+.figure-chart h3 { margin: 0; font-size: .95rem; font-weight: 600; }
+.figure-chart .chart { aspect-ratio: 480 / 260; }
 .chart-key { display: flex; flex-wrap: wrap; gap: .6rem 1.1rem; margin-bottom: .7rem; color: var(--muted); font-size: .76rem; }
 .chart-key span { display: inline-flex; align-items: center; gap: .42rem; }
 .key-line { display: inline-block; width: 1.5rem; height: 2px; flex: 0 0 auto; }
@@ -49,6 +53,8 @@ figure { margin: 0; }
 .key-line.battery-dashed { background: repeating-linear-gradient(90deg, var(--response) 0 7px, transparent 7px 12px); }
 .key-line.proposed { background: #b9423f; }
 .key-line.assumed-limit { background: repeating-linear-gradient(90deg, #8f99a3 0 5px, transparent 5px 9px); }
+.key-line.wholesale-price { height: 3px; background: #b5bcc4; }
+.key-line.worst-price { background: repeating-linear-gradient(90deg, #b9423f 0 7px, transparent 7px 12px); }
 .chart-card { border-block: 1px solid var(--line); padding: .8rem 0 .45rem; }
 .chart { display: block; width: 100%; height: auto; aspect-ratio: 600 / 260; overflow: visible; }
 .chart-grid { stroke: rgba(30, 42, 53, .15); stroke-width: 1; vector-effect: non-scaling-stroke; }
@@ -72,6 +78,9 @@ figcaption { margin-top: .6rem; color: var(--muted); font: .82rem/1.5 var(--seri
 .status p { color: var(--muted); }
 
 @media (max-width: 720px) {
+  .figure-charts { grid-template-columns: minmax(0, 1fr); row-gap: .7rem; }
+  .price-panel { margin-top: 1.1rem; }
+  .figure-chart .chart { aspect-ratio: 480 / 300; }
   .scenario-bar-inner { grid-template-columns: 1fr 1fr; gap: .35rem 1rem; }
   .scenario-selector { grid-column: 1 / -1; }
   .scenario-selector button { flex: 1; }

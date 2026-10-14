@@ -35,7 +35,7 @@ export function SeriesChart({
   series: Series[];
   cursor: number;
   ariaLabel: string;
-  yAxis?: { label: string; format: "price" | "number" };
+  yAxis?: { label: string; format: "price" | "pence" | "number" };
   bands?: Array<{ lower: Array<number | null>; upper: Array<number | null>; color: string }>;
   viewWidth?: number;
 }) {
@@ -45,7 +45,7 @@ export function SeriesChart({
   if (values.length === 0) return <p className="chart-empty">No complete samples at this time.</p>;
   const rawMin = Math.min(...values);
   const rawMax = Math.max(...values);
-  const minimumPadding = yAxis?.format === "price" ? 0.01 : 1;
+  const minimumPadding = yAxis?.format === "price" || yAxis?.format === "pence" ? 0.001 : 1;
   const padding = Math.max(minimumPadding, (rawMax - rawMin) * 0.08);
   const min = rawMin - padding;
   const max = rawMax + padding;
@@ -63,6 +63,7 @@ export function SeriesChart({
   const ticks = Array.from({ length: 5 }, (_, index) => max - (span * index) / 4);
   const gridTicks = yAxis ? ticks : [max - span * 0.25, max - span * 0.5, max - span * 0.75];
   const tickLabel = (value: number) => {
+    if (yAxis?.format === "pence") return (value * 100).toFixed(1);
     if (yAxis?.format === "price") {
       const sign = value < 0 ? "−" : "";
       return `${sign}£${Math.abs(value).toFixed(2)}`;

@@ -3,11 +3,14 @@ import { formatDate, formatKw, formatStamp, formatTime } from "@/lib/format";
 import type { BatteryScenario, FlexResult, ViewScenario } from "@/lib/flexibility";
 import type { AnnualCapacity, Feeder, WorstDay } from "@/lib/types";
 import { alignWorstDay, simulateWorstDay } from "@/lib/worst-day";
+import { localPriceSeries } from "@/lib/local-price";
+import { defaultScenario } from "@/lib/constraint";
 
-export function StoryHero({ feeder, annual, proposedCapacityKw, worstDay, result, config, clock, cursor, scenario }: {
+export function StoryHero({ feeder, annual, proposedCapacityKw, localTariffGbpPerKwh, worstDay, result, config, clock, cursor, scenario }: {
   feeder: Feeder;
   annual?: AnnualCapacity;
   proposedCapacityKw: number | null;
+  localTariffGbpPerKwh: number | null;
   worstDay?: WorstDay | null;
   result: FlexResult;
   config: BatteryScenario;
@@ -25,12 +28,21 @@ export function StoryHero({ feeder, annual, proposedCapacityKw, worstDay, result
     : clock.map(() => null);
   const proposed = clock.map(() => proposedKw);
   const assumed = clock.map(() => result.referenceImportKw);
+  const wholesale = result.rows.map(row => row?.wholesalePerKwh ?? null);
+  const priceImportKw = batteryReady ? proposedKw : result.referenceImportKw;
+  const priceExportKw = batteryReady ? proposedKw : defaultScenario.exportKw!;
+  const latestLocal = localPriceSeries(wholesale, result.rows.map(row => row?.baseline ?? null), priceImportKw, priceExportKw, localTariffGbpPerKwh);
+  const worstLocal = localPriceSeries(wholesale, worstBaseline, priceImportKw, priceExportKw, localTariffGbpPerKwh);
+  const timeLabels = [0, .25, .5, .75, 1].map(fraction => formatTime(new Date(Date.parse(clock[0]) + fraction * clock.length * 1800000).toISOString()));
 
   return <section className="section figure-section" id="figure-1" aria-labelledby="figure-title">
     <p className="eyebrow">Figure 1 / One feeder over 24 hours</p>
     <h2 id="figure-title">Feeder loading through the day</h2>
     <p className="section-lede">Latest 24 hours beside the feeder’s highest-loading day of the year.</p>
     <div className="figure-heading"><strong>{feeder.substationName} / {feeder.name}</strong><span>{formatStamp(clock[0])}–{formatStamp(new Date(Date.parse(clock.at(-1)!) + 1800000).toISOString())}</span></div>
+    <div className="figure-charts">
+    <div className="figure-chart loading-panel">
+    <h3>Loading</h3>
     <div className="chart-key">
       {batteryReady ? <>
         <span><i className="key-line battery" />Latest 24h + batteries</span>
@@ -43,7 +55,7 @@ export function StoryHero({ feeder, annual, proposedCapacityKw, worstDay, result
       <span><i className="key-line assumed-limit" />Today’s assumed import limit · {formatKw(result.referenceImportKw)}</span>
     </div>
     <div className="chart-card">
-      <SeriesChart cursor={cursor} viewWidth={600} ariaLabel={batteryReady
+      <SeriesChart cursor={cursor} viewWidth={480} ariaLabel={batteryReady
         ? "Battery-adjusted feeder power in kilowatts, with proposed capacity and today's assumed import limit"
         : "Observed feeder power in kilowatts, with today's assumed import limit"}
         yAxis={{ label: "Feeder power (kW)", format: "number" }}
@@ -55,13 +67,32 @@ export function StoryHero({ feeder, annual, proposedCapacityKw, worstDay, result
           { values: worstBattery, color: "#1e7f66", width: 2.5, dash: "7 5" },
           { values: proposed, color: "#b9423f", width: 1.5 },
         ]} />
-      <div className="chart-axis" aria-hidden="true">{[0, .25, .5, .75, 1].map(fraction =>
-        <span key={fraction}>{formatTime(new Date(Date.parse(clock[0]) + fraction * clock.length * 1800000).toISOString())}</span>)}</div>
+      <div className="chart-axis" aria-hidden="true">{timeLabels.map((label, index) => <span key={index}>{label}</span>)}</div>
+    </div>
+    </div>
+    <div className="figure-chart price-panel">
+      <h3>Local + wholesale price</h3>
+      <div className="chart-key">
+        <span><i className="key-line wholesale-price" />Wholesale</span>
+        <span><i className="key-line latest" />Latest 24h local</span>
+        {worstDay ? <span><i className="key-line worst-price" />Worst-day local</span> : null}
+      </div>
+      <div className="chart-card">
+        <SeriesChart cursor={cursor} viewWidth={480} ariaLabel="Wholesale and local electricity prices; worst-day demand uses the same wholesale curve"
+          yAxis={{ label: "Price (p/kWh)", format: "pence" }} series={[
+            { values: wholesale, color: "#b5bcc4", width: 3 },
+            { values: latestLocal, color: "#46515e", width: 1.5 },
+            { values: worstLocal, color: "#b9423f", width: 2, dash: "7 5" },
+          ]} />
+        <div className="chart-axis" aria-hidden="true">{timeLabels.map((label, index) => <span key={index}>{label}</span>)}</div>
+      </div>
+    </div>
     </div>
     <p className="figure-note">{batteryReady
       ? "Green shows simulated battery response targeting the proposed capacity."
       : scenario === "battery" ? "Annual battery sizing is unavailable for this feeder; original flow is shown."
         : "The two traces show observed flow without battery response."} The grey dashed line is today’s assumed limit, not a measured feeder rating.</p>
+    <p className="figure-note">{localTariffGbpPerKwh === null ? "Local tariff unavailable for this feeder. " : "Local prices add the energy-only VPP tariff when demand exceeds capacity, before battery response. "}The dashed price trace applies worst-day demand to the same wholesale curve.</p>
   </section>;
 }
 

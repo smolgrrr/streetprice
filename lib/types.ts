@@ -143,4 +143,5 @@ export type CohortFeeder = {
 export type DashboardSnapshot = Pick<Snapshot, "feeders" | "window" | "ratingAssumptionAmps" | "annualCapacity"> & {
   streets: NonNullable<Snapshot["streets"]>;
   capacities: Record<string, number[]>;
+  tariffs: Record<string, Array<number | null>>;
 };
