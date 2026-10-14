@@ -29,7 +29,7 @@ export function Dashboard({ snapshot }: { snapshot: DashboardSnapshot }) {
   const [feederId, setFeederId] = useState(() => openingFeeder(feeders, snapshot.annualCapacity, snapshot.ratingAssumptionAmps, clock).id);
   const [cursor, setCursor] = useState(Math.max(0, clock.length - 1));
   const [scenario, setScenario] = useState<ViewScenario>("battery");
-  const [batteryShare, setBatteryShare] = useState(33);
+  const [batteryShare, setBatteryShare] = useState(10);
   const groups = useMemo(() => substationsOf(feeders), [feeders]);
   const layout = snapshot.streets;
   const config = useMemo(() => ({ ...batteryDefaults, households: batteryHomesForShare(batteryShare) }), [batteryShare]);
