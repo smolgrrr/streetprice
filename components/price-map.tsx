@@ -42,33 +42,27 @@ export function PriceMap({
   points,
   lines,
   stubs,
-  focus,
   onSelectSubstation,
   onSelectFeeder,
-  onClearSelection,
   ariaLabel = "Oxford LV feeder constraint map. Illustrative street traces are not mapped cables.",
 }: {
   points: MapPoint[];
   lines: MapLine[];
   stubs: MapStub[];
-  focus?: { lat: number; lon: number; token: number } | null;
   onSelectSubstation: (id: string) => void;
   onSelectFeeder: (substationId: string, feederId: string) => void;
-  onClearSelection: () => void;
   ariaLabel?: string;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<Map | null>(null);
   const onSelectSubstationRef = useRef(onSelectSubstation);
   const onSelectFeederRef = useRef(onSelectFeeder);
-  const onClearSelectionRef = useRef(onClearSelection);
   const fitted = useRef(false);
 
   useEffect(() => {
     onSelectSubstationRef.current = onSelectSubstation;
     onSelectFeederRef.current = onSelectFeeder;
-    onClearSelectionRef.current = onClearSelection;
-  }, [onSelectSubstation, onSelectFeeder, onClearSelection]);
+  }, [onSelectSubstation, onSelectFeeder]);
 
   useEffect(() => {
     const element = container.current;
@@ -165,7 +159,6 @@ export function PriceMap({
           onSelectFeederRef.current(substationId, feederId);
           return;
         }
-        onClearSelectionRef.current();
       });
       map.on("mousemove", (event) => {
         const hits = map.queryRenderedFeatures(event.point, { layers: ["substations", "feeders", "feeder-glow"] });
@@ -250,21 +243,6 @@ export function PriceMap({
     if (map.isStyleLoaded() && map.getSource("feeders")) apply();
     else map.once("load", apply);
   }, [points, lines, stubs]);
-
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !focus) return;
-    const run = () => {
-      const zoom = map.getZoom();
-      map.easeTo({
-        center: [focus.lon, focus.lat],
-        zoom: zoom < 13.5 ? 14.5 : zoom,
-        duration: 700,
-      });
-    };
-    if (map.isStyleLoaded()) run();
-    else map.once("load", run);
-  }, [focus]);
 
   return (
     <div

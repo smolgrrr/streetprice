@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Streetprice · Oxford",
-  description: "A historical model of how local grid conditions could affect electricity prices across Oxford.",
+  description: "Oxford LV feeder loading, peak-day comparison and simulated home-battery response.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

@@ -42,7 +42,7 @@ export function ratioColor(ratio: number): string {
 
 /** Signed capacity loading: −1 is the export limit, 0 is zero flow, +1 is the import limit. */
 export function capacityColor(signedLoading: number): string {
-  const zero = [208, 206, 198];
+  const zero = [208, 212, 216];
   if (!Number.isFinite(signedLoading)) return "rgb(226 226 222)";
   return mix(zero, signedLoading < 0 ? CHARGE : DISCHARGE, Math.abs(signedLoading));
 }

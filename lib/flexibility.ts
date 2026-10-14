@@ -15,7 +15,7 @@ export const batteryDefaults: BatteryScenario = {
   efficiency: 0.95, targetLoading: 0.8,
 };
 
-export type ViewScenario = "none" | "battery" | "long-term";
+export type ViewScenario = "none" | "battery";
 
 // Scenario assumption only: the monitored dataset has no household counts.
 export const assumedHouseholdsPerFeeder = 60;

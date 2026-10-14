@@ -1,8 +1,6 @@
 # Streetprice
 
-A map of a local energy price on SSEN low-voltage feeders across Oxford.
-
-The price is a model: the Elexon Market Index Price, plus an add-on that pays a battery on that feeder to flatten it. It is not an SSEN tariff.
+A 24-hour feeder chart and loading heat map for SSEN low-voltage feeders across Oxford. The site compares observed flow with a simulated home-battery response and a proposed feeder size.
 
 The area is the Oxford box, latitude 51.70–51.82 and longitude −1.32 to −1.15. The production snapshot retains 187 feeders and 85 substations, including missing readings. The deployed site serves `data/snapshot.json`; if missing, it shows a labelled synthetic example.
 
@@ -31,7 +29,7 @@ npm run annual
 
 The same compact file preserves one curated worst-observed-day trace per feeder, selected by maximum import/export loading relative to today's assumed directional limits among days with ≥50% readings. Missing and ambiguous repeated DST times remain gaps. The initially selected feeder has adequate annual history and a peak nearest 100%; this selection is independent of the battery toggle. Batteries assume 10 kW / 25 kWh per home. Raw annual histories remain local and ignored by git.
 
-Figure 1 shows the selected feeder’s latest 24 hours and its worst observed day; the battery toggle replaces original traces with simulated response to the dynamically sized limit. Historical P50/P90/P99 can be opened separately. Figure 2 sorts annual flow magnitudes from busiest to quietest and moves the proposed line with battery adoption. The economics panel compares annualised installed capacity with an energy-only VPP payment. The illustrative tariff is annual marginal asset cost per kW divided by the recorded hours above proposed capacity. This is not a market-clearing price or proof that VPPs would participate; battery ownership, charging, degradation, reliability, voltage and future growth remain outside the cost comparison. Annual ingestion publishes compact outputs without publishing raw histories.
+Figure 1 shows the selected feeder’s latest 24 hours and worst observed day. The battery toggle replaces those traces with simulated battery response targeting the proposed capacity at the selected adoption rate. The map shows selected-time loading against today’s assumed import/export limits in both modes; proposed capacity is never used as the map’s 100% reference. Tap a feeder on the map to change Figure 1. Battery ownership, charging cost, degradation, reliability, voltage and future growth are outside this illustration. Annual ingestion publishes compact outputs without publishing raw histories.
 
 Substation statistics sum concurrent monitored feeder readings before taking maxima. They are not total transformer demand without full inventory coverage. The model retains its experimental price, battery and linear-cost assumptions.
 
