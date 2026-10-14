@@ -16,7 +16,7 @@ export function StoryHero({ feeder, annual, sizing, worstDay, result, config, cl
   cursor: number;
   scenario: ViewScenario;
 }) {
-  const proposedKw = sizing?.points[scenario === "battery" ? config.households : 0]?.capacityKw ?? null;
+  const proposedKw = scenario === "battery" ? sizing?.points[config.households]?.capacityKw ?? null : null;
   const batteryReady = scenario === "battery" && annual?.status === "ready" && proposedKw !== null;
   const worstBaseline = alignWorstDay(worstDay, clock);
   const worstResponse = batteryReady && worstDay
@@ -44,13 +44,10 @@ export function StoryHero({ feeder, annual, sizing, worstDay, result, config, cl
       <span><i className="key-line assumed-limit" />Today’s assumed import limit · {formatKw(result.referenceImportKw)}</span>
     </div>
     <div className="chart-card">
-      <SeriesChart cursor={cursor} viewWidth={600} ariaLabel="Selected feeder power in kilowatts, with proposed capacity and today's assumed import limit"
+      <SeriesChart cursor={cursor} viewWidth={600} ariaLabel={batteryReady
+        ? "Battery-adjusted feeder power in kilowatts, with proposed capacity and today's assumed import limit"
+        : "Observed feeder power in kilowatts, with today's assumed import limit"}
         yAxis={{ label: "Feeder power (kW)", format: "number" }}
-        bands={batteryReady ? [] : [{
-          lower: worstBaseline.map(value => value === null ? null : proposedKw),
-          upper: worstBaseline.map(value => value === null || proposedKw === null ? null : Math.max(proposedKw, value)),
-          color: "rgba(185, 66, 63, 0.16)",
-        }]}
         series={[
           { values: assumed, color: "#8f99a3", width: 1.5, dash: "5 4" },
           { values: worstBaseline.map(value => batteryReady ? null : value), color: "#79818a", width: 2, dash: "7 5" },
@@ -65,7 +62,7 @@ export function StoryHero({ feeder, annual, sizing, worstDay, result, config, cl
     <p className="figure-note">{batteryReady
       ? "Green shows simulated battery response targeting the proposed capacity."
       : scenario === "battery" ? "Annual battery sizing is unavailable for this feeder; original flow is shown."
-        : "Red shading shows where the worst day would exceed proposed capacity."} The grey dashed line is today’s assumed limit, not a measured feeder rating.</p>
+        : "The two traces show observed flow without battery response."} The grey dashed line is today’s assumed limit, not a measured feeder rating.</p>
   </section>;
 }
 

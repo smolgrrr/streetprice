@@ -19,7 +19,7 @@ figure { margin: 0; }
 .story { min-height: 100dvh; }
 .section { width: min(100%, 1080px); margin: 0 auto; padding-inline: clamp(1.25rem, 4vw, 3rem); }
 .intro { padding-block: clamp(2rem, 5vw, 4rem) clamp(1.5rem, 4vw, 3rem); }
-.intro h1 { max-width: 16em; margin: 0; font: 500 clamp(2.35rem, 5vw, 4.6rem)/1.07 var(--serif); letter-spacing: -.035em; }
+.intro h1 { max-width: 16em; margin: 0; font: 500 clamp(2.1rem, 3vw, 3.2rem)/1.1 var(--serif); letter-spacing: -.025em; }
 .intro-summary { max-width: 45rem; margin: 1.3rem 0 0; color: var(--muted); font-size: clamp(.98rem, 1.4vw, 1.12rem); line-height: 1.65; }
 
 .scenario-bar { position: sticky; top: 0; z-index: 20; background: rgba(255, 255, 255, .98); border-block: 1px solid var(--line); }
@@ -29,7 +29,9 @@ figure { margin: 0; }
 .scenario-selector button[aria-pressed=true] { background: #edf3f0; color: #17614d; font-weight: 600; }
 .battery-share-control > div, .time-control > div { display: flex; justify-content: space-between; gap: .6rem; align-items: baseline; margin-bottom: .15rem; font-size: .78rem; }
 .battery-share-control strong, .time-control strong { font-size: .82rem; font-weight: 600; font-variant-numeric: tabular-nums; }
-.battery-share-control input, .time-control input { display: block; width: 100%; min-height: 1.7rem; margin: 0; accent-color: var(--response); }
+.battery-share-control input, .time-control input { display: block; width: 100%; min-height: 1.7rem; margin: 0; }
+.battery-share-control input { accent-color: var(--response); }
+.time-control input { accent-color: #111; }
 
 .figure-section, .network-section { padding-block: clamp(2rem, 4vw, 3rem); scroll-margin-top: 7rem; }
 .network-section { border-top: 1px solid var(--line); padding-bottom: 4rem; }
