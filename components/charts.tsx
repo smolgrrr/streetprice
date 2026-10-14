@@ -29,6 +29,7 @@ export function SeriesChart({
   cursor,
   ariaLabel,
   yAxis,
+  xAxis,
   bands = [],
   viewWidth = 960,
 }: {
@@ -36,11 +37,12 @@ export function SeriesChart({
   cursor: number;
   ariaLabel: string;
   yAxis?: { label: string; format: "price" | "pence" | "number" };
+  xAxis?: Array<{ index: number; label: string }>;
   bands?: Array<{ lower: Array<number | null>; upper: Array<number | null>; color: string }>;
   viewWidth?: number;
 }) {
   const width = viewWidth;
-  const height = 260;
+  const height = xAxis ? 284 : 260;
   const values = [...series.flatMap((item) => item.values), ...bands.flatMap((band) => [...band.lower, ...band.upper])].filter((value): value is number => value !== null && Number.isFinite(value));
   if (values.length === 0) return <p className="chart-empty">No complete samples at this time.</p>;
   const rawMin = Math.min(...values);
@@ -54,7 +56,7 @@ export function SeriesChart({
   const left = yAxis ? 78 : 0;
   const right = 4;
   const top = yAxis ? 28 : 18;
-  const bottom = 18;
+  const bottom = xAxis ? 42 : 18;
   const plotWidth = width - left - right;
   const plotHeight = height - top - bottom;
   const x = (index: number) => left + (count <= 1 ? 0 : (index / (count - 1)) * plotWidth);
@@ -118,6 +120,12 @@ export function SeriesChart({
         y2={height - bottom}
         className="chart-cursor"
       />
+      {xAxis?.map(tick => (
+        <g key={tick.index}>
+          <line x1={x(tick.index)} x2={x(tick.index)} y1={height - bottom} y2={height - bottom + 5} className="chart-grid" />
+          <text x={x(tick.index)} y={height - 10} textAnchor={tick.index === count - 1 ? "end" : "middle"} className="chart-x-tick">{tick.label}</text>
+        </g>
+      ))}
     </svg>
   );
 }
