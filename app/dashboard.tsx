@@ -80,7 +80,7 @@ export function Dashboard({ snapshot }: { snapshot: DashboardSnapshot }) {
   return <main className="story">
     <section className="intro section">
       <h1>Reducing distribution network costs by 45% with price signals</h1>
-      <p className="intro-summary">Distribution network costs are predominantly made up of fixed cost assets that must be over-sized for peak flows. With the advent of home batteries and VPPs becoming ubiquitous, power flows can be smoothed downstream of LV feeders &amp; substations with simple price signals. On the long-run, I propose that this will reduce distribution network costs &amp; capex by 45%.</p>
+      <p className="intro-summary">The grid <a href="https://x.com/jessepeltan/status/1921715119366521106" target="_blank" rel="noreferrer">moves electricity efficiently</a>, but its capacity sits underused between peaks. Your bill pays for that capacity <a href="https://x.com/jessepeltan/status/1931374324851560633" target="_blank" rel="noreferrer">as well as generation</a>.</p>
     </section>
     <ScenarioControls scenario={scenario} onScenario={setScenario} clock={clock} cursor={cursor} onSeek={setCursor} batteryShare={batteryShare} onBatteryShare={setBatteryShare} />
     <StoryHero feeder={feeder} worstDay={snapshot.annualCapacity?.feeders[feeder.id]?.worstDay}

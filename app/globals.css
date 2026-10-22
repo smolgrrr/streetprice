@@ -21,6 +21,7 @@ figure { margin: 0; }
 .intro { padding-block: clamp(2rem, 5vw, 4rem) clamp(1.5rem, 4vw, 3rem); }
 .intro h1 { margin: 0; font: 500 clamp(1.8rem, 2vw, 2.3rem)/1.18 var(--serif); letter-spacing: -.02em; }
 .intro-summary { margin: 1.1rem 0 0; color: var(--muted); font-size: clamp(.98rem, 1.2vw, 1.06rem); line-height: 1.65; }
+.intro-summary a { color: inherit; text-decoration-color: #b7c0c8; text-underline-offset: .15em; }
 
 .scenario-bar { position: sticky; top: 0; z-index: 20; background: rgba(255, 255, 255, .98); border-block: 1px solid var(--line); }
 .scenario-bar-inner { width: min(100%, 1080px); margin: auto; padding: .65rem clamp(1.25rem, 4vw, 3rem); display: grid; grid-template-columns: auto minmax(12rem, 1fr) minmax(12rem, 1fr); align-items: center; gap: clamp(1rem, 3vw, 2rem); }
