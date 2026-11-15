@@ -17,6 +17,8 @@ export function dashboardSnapshot(snapshot: Snapshot): DashboardSnapshot {
       [id, curve.points.map(point => point.capacityKw)])),
     tariffs: Object.fromEntries(Object.entries(snapshot.sizing?.feeders ?? {}).map(([id, curve]) =>
       [id, curve.points.map(point => point.tariffGbpPerKwh)])),
+    annualCosts: Object.fromEntries(Object.entries(snapshot.sizing?.feeders ?? {}).map(([id, curve]) =>
+      [id, curve.points.map(point => ({ assetsGbp: point.annualAssetGbp, vppGbp: point.annualPaymentGbp }))])),
     annualCapacity: annual ? {
       ...annual,
       substations: {},

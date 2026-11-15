@@ -60,3 +60,14 @@ export function formatPct(loading: number): string {
 export function formatKw(value: number): string {
   return `${Math.round(value)} kW`;
 }
+// Rounded from the ECB's 13 November 2026 EUR/USD and EUR/GBP reference rates.
+export const USD_PER_GBP = 1.32;
+export const USD_RATE_SOURCE = "https://data-api.ecb.europa.eu/service/data/EXR/D.GBP+USD.EUR.SP00.A?startPeriod=2026-11-13&endPeriod=2026-11-13";
+
+const usd = new Intl.NumberFormat("en-US", {
+  style: "currency", currency: "USD", maximumFractionDigits: 0,
+});
+
+export function formatUsdFromGbp(value: number): string {
+  return usd.format(value * USD_PER_GBP);
+}

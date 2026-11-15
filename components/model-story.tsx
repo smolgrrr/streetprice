@@ -1,10 +1,13 @@
 import { SeriesChart } from "./charts";
-import { formatDate, formatKw, formatStamp, formatTime } from "@/lib/format";
+import { formatDate, formatKw, formatStamp, formatTime, USD_PER_GBP } from "@/lib/format";
 import type { BatteryScenario, FlexResult, ViewScenario } from "@/lib/flexibility";
 import type { AnnualCapacity, Feeder, WorstDay } from "@/lib/types";
 import { alignWorstDay, simulateWorstDay } from "@/lib/worst-day";
 import { localPriceSeries } from "@/lib/local-price";
 import { defaultScenario } from "@/lib/constraint";
+
+const inUsdCents = (prices: Array<number | null>) =>
+  prices.map(price => price === null ? null : price * USD_PER_GBP * 100);
 
 export function StoryHero({ feeder, annual, proposedCapacityKw, localTariffGbpPerKwh, worstDay, result, config, clock, cursor, scenario }: {
   feeder: Feeder;
@@ -80,10 +83,10 @@ export function StoryHero({ feeder, annual, proposedCapacityKw, localTariffGbpPe
       </div>
       <div className="chart-card">
         <SeriesChart cursor={cursor} viewWidth={480} ariaLabel="Wholesale and local electricity prices; worst-day demand uses the same wholesale curve"
-          yAxis={{ label: "Price (p/kWh)", format: "pence" }} xAxis={timeTicks} series={[
-            { values: wholesale, color: "#b5bcc4", width: 3 },
-            { values: latestLocal, color: "#46515e", width: 1.5 },
-            { values: worstLocal, color: "#b9423f", width: 2, dash: "7 5" },
+          yAxis={{ label: "Price (US ¢/kWh)", format: "cents" }} xAxis={timeTicks} series={[
+            { values: inUsdCents(wholesale), color: "#b5bcc4", width: 3 },
+            { values: inUsdCents(latestLocal), color: "#46515e", width: 1.5 },
+            { values: inUsdCents(worstLocal), color: "#b9423f", width: 2, dash: "7 5" },
           ]} />
       </div>
     </div>

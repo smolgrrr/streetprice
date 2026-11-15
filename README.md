@@ -37,4 +37,6 @@ Figure 1's price panel uses the same latest wholesale curve for both load days. 
 
 Substation statistics sum concurrent monitored feeder readings before taking maxima. They are not total transformer demand without full inventory coverage. The model retains its experimental price, battery and linear-cost assumptions.
 
+The opening pie chart and Sankey show the same US $100 retail electricity bill example. Both use the Commons Library’s GB electricity price cap breakdown for April–June 2026, based on Ofgem Annex 9. A separate note uses the selected feeder’s annual sizing curve to explain where batteries can lower local network costs. Model prices display in USD at a fixed illustrative rate of 1.32 USD per GBP (13 November 2026, rounded); underlying inputs and calculations stay in sterling.
+
 Commit the compact snapshot, annual statistics and sizing curves for deployment, never raw history, ingest caches, cohort discovery or credentials. Local annual pages in `data/annual-cache/` are gitignored and reusable. A power bucket requires all three phases; gaps are never filled in.

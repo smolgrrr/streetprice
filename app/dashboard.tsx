@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { StoryHero } from "@/components/model-story";
 import { ScenarioControls } from "@/components/scenario-controls";
+import { NetworkCosts } from "@/components/network-costs";
 import { batteryDefaults, batteryHomesForShare, simulateFlexibility, type ViewScenario } from "@/lib/flexibility";
 import { capacityColor } from "@/lib/color";
 import { defaultScenario } from "@/lib/constraint";
@@ -82,6 +83,8 @@ export function Dashboard({ snapshot }: { snapshot: DashboardSnapshot }) {
       <h1>Reducing distribution network costs by 45% with price signals</h1>
       <p className="intro-summary">The grid <a href="https://x.com/jessepeltan/status/1921715119366521106" target="_blank" rel="noreferrer">moves electricity efficiently</a>, but its capacity sits underused between peaks. Your bill pays for that capacity <a href="https://x.com/jessepeltan/status/1931374324851560633" target="_blank" rel="noreferrer">as well as generation</a>.</p>
     </section>
+    <NetworkCosts feeder={feeder} baseline={snapshot.annualCosts[feeder.id]?.[0]}
+      selected={snapshot.annualCosts[feeder.id]?.[scenario === "battery" ? config.households : 0]} />
     <ScenarioControls scenario={scenario} onScenario={setScenario} clock={clock} cursor={cursor} onSeek={setCursor} batteryShare={batteryShare} onBatteryShare={setBatteryShare} />
     <StoryHero feeder={feeder} worstDay={snapshot.annualCapacity?.feeders[feeder.id]?.worstDay}
       annual={snapshot.annualCapacity?.feeders[feeder.id]} proposedCapacityKw={snapshot.capacities[feeder.id]?.[config.households] ?? null}

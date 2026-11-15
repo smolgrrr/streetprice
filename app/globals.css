@@ -37,7 +37,7 @@ figure { margin: 0; }
 .figure-section, .network-section { padding-block: clamp(2rem, 4vw, 3rem); scroll-margin-top: 7rem; }
 .network-section { border-top: 1px solid var(--line); padding-bottom: 4rem; }
 .eyebrow { margin: 0 0 .4rem; color: var(--muted); font-size: .72rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; }
-.figure-section h2, .network-section h2 { margin: 0; font: 500 clamp(1.75rem, 3vw, 2.45rem)/1.2 var(--serif); }
+.figure-section h2, .network-section h2, .costs-section h2 { margin: 0; font: 500 clamp(1.75rem, 3vw, 2.45rem)/1.2 var(--serif); }
 .section-lede { margin: .6rem 0 1.5rem; color: var(--muted); font-size: .95rem; }
 .figure-heading { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .35rem 1rem; margin: 0 0 1rem; font-size: .86rem; }
 .figure-heading span { color: var(--muted); }
@@ -78,7 +78,25 @@ figcaption { margin-top: .6rem; color: var(--muted); font: .82rem/1.5 var(--seri
 .status h1 { margin: 0; font: 500 2rem/1.2 var(--serif); }
 .status p { color: var(--muted); }
 
+.costs-section { border-top: 1px solid var(--line); padding-block: 2.5rem 4rem; scroll-margin-top: 8rem; }
+.costs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2.5rem; align-items: start; }
+.costs-grid figure { min-width: 0; }
+.costs-grid h3, .battery-cost-note h3 { font-size: 1rem; font-weight: 600; margin: 0 0 .65rem; }
+.money-sankey { display: block; width: 100%; max-width: 420px; height: auto; margin: auto; font-size: 12px; fill: var(--ink); font-family: var(--sans); }
+.flow-label { font-size: 14px; font-weight: 600; }
+.cost-pie { display: block; width: min(100%, 210px); height: auto; margin: .5rem auto; }
+.cost-legend { margin: .5rem 0 1rem; font-size: .82rem; }
+.cost-legend > div { display: flex; justify-content: space-between; gap: .8rem; padding: .45rem 0; border-bottom: 1px solid var(--line); }
+.cost-legend dt { display: inline-flex; align-items: baseline; gap: .5rem; }
+.cost-legend i { flex: 0 0 .65rem; height: .65rem; border-radius: 50%; }
+.cost-legend dd { margin: 0; font-variant-numeric: tabular-nums; }
+.cost-legend small { display: block; color: var(--muted); font-size: .75rem; }
+.battery-cost-note { margin-top: 1.4rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+.battery-cost-note > p { margin: 0; }
+.battery-cost-note > .figure-note { margin-top: .45rem; }
+
 @media (max-width: 720px) {
+  .costs-grid { grid-template-columns: minmax(0, 1fr); gap: 2rem; }
   .figure-charts { display: flex; flex-direction: column; gap: 1.5rem; }
   .figure-chart { display: block; }
   .scenario-bar-inner { grid-template-columns: 1fr 1fr; gap: .35rem 1rem; }
